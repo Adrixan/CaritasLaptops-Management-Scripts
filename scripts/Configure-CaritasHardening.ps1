@@ -100,6 +100,10 @@ if ($RevertToDefaults) {
         Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer" -Name "NoDriveTypeAutoRun" -Value 0x91 -Type DWord -ErrorAction SilentlyContinue
         Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection" -Name "AllowTelemetry" -Value 3 -Type DWord -ErrorAction SilentlyContinue
         Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search" -Name "DisableWebSearch" -Value 0 -Type DWord -ErrorAction SilentlyContinue
+        Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -Name "NoConnectedUser" -Value 0 -Type DWord -ErrorAction SilentlyContinue
+        Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\OneDrive" -Name "DisableFileSyncNGSC" -Value 0 -Type DWord -ErrorAction SilentlyContinue
+        Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\OneDrive" -Name "DisableFileSync" -Value 0 -Type DWord -ErrorAction SilentlyContinue
+        Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\SettingSync" -Name "DisableSettingSync" -Value 0 -Type DWord -ErrorAction SilentlyContinue
     }
     Write-HardeningLog "Revert operations completed." "DONE" ([ConsoleColor]::Cyan)
     exit 0
@@ -267,6 +271,23 @@ if (-not $SkipPrivacy) {
     $cloudContentPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\CloudContent"
     Set-RegistryPolicy -Path $cloudContentPath -Name "DisableWindowsConsumerFeatures" -Value 1 -Description "Disable promotional consumer apps and suggestions"
     Set-RegistryPolicy -Path $cloudContentPath -Name "DisableTailoredExperiencesWithDiagnosticData" -Value 1 -Description "Disable diagnostic data tailored experiences"
+
+    # F. Block Microsoft Account (MSA) Attachment Across All Editions
+    $systemPoliciesPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System"
+    Set-RegistryPolicy -Path $systemPoliciesPath -Name "NoConnectedUser" -Value 3 -Description "Block Microsoft Account linking and sign-in (NoConnectedUser = 3)"
+
+    # G. Disable OneDrive Storage, Sync Engine, and Autostart
+    $oneDrivePolicyPath = "HKLM:\SOFTWARE\Policies\Microsoft\OneDrive"
+    Set-RegistryPolicy -Path $oneDrivePolicyPath -Name "DisableFileSyncNGSC" -Value 1 -Description "Prevent usage of OneDrive for file storage"
+    Set-RegistryPolicy -Path $oneDrivePolicyPath -Name "DisableFileSync" -Value 1 -Description "Disable OneDrive file synchronization globally"
+    if (-not $DryRun) {
+        Remove-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" -Name "OneDriveSetup" -ErrorAction SilentlyContinue
+    }
+
+    # H. Disable Windows Settings Synchronization
+    $settingSyncPolicyPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\SettingSync"
+    Set-RegistryPolicy -Path $settingSyncPolicyPath -Name "DisableSettingSync" -Value 2 -Description "Disable Windows Settings Synchronization"
+    Set-RegistryPolicy -Path $settingSyncPolicyPath -Name "DisableSettingSyncUserOverride" -Value 1 -Description "Disable Settings Sync user override"
 } else {
     Write-HardeningLog "[Module 4/5] Privacy configuration skipped via -SkipPrivacy flag." "INFO" ([ConsoleColor]::Gray)
 }
