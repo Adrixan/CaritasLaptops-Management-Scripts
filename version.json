@@ -1,0 +1,9 @@
+{
+  "version": "1.0.0",
+  "releaseDate": "2026-09-23",
+  "minPowerShellVersion": "5.1",
+  "repository": "Adrixan/CaritasLaptops-Management-Scripts",
+  "releaseUrl": "https://github.com/Adrixan/CaritasLaptops-Management-Scripts/releases/latest",
+  "rawVersionUrl": "https://raw.githubusercontent.com/Adrixan/CaritasLaptops-Management-Scripts/main/version.json",
+  "archiveUrl": "https://github.com/Adrixan/CaritasLaptops-Management-Scripts/archive/refs/heads/main.zip"
+}
