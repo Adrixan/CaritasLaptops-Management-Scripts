@@ -1,0 +1,842 @@
+[
+  {
+    "Name": "7-Zip 26.02 (x64)",
+    "Version": "26.02",
+    "Publisher": "Igor Pavlov",
+    "InstallDate": "",
+    "UninstallString": "\"C:\\Program Files\\7-Zip\\Uninstall.exe\"",
+    "QuietUninstallString": "\"C:\\Program Files\\7-Zip\\Uninstall.exe\" /S",
+    "Type": "Win32",
+    "PackageId": "7-Zip"
+  },
+  {
+    "Name": "AppUp.IntelGraphicsExperience",
+    "Version": "1.100.5688.0",
+    "Publisher": "8j3eq9eme6ctt",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "AppUp.IntelGraphicsExperience_1.100.5688.0_x64__8j3eq9eme6ctt"
+  },
+  {
+    "Name": "Audacity 3.7.8",
+    "Version": "3.7.8",
+    "Publisher": "Audacity Team",
+    "InstallDate": "20260729",
+    "UninstallString": "\"C:\\Program Files\\Audacity\\unins000.exe\"",
+    "QuietUninstallString": "\"C:\\Program Files\\Audacity\\unins000.exe\" /SILENT",
+    "Type": "Win32",
+    "PackageId": "Audacity_is1"
+  },
+  {
+    "Name": "Blender",
+    "Version": "4.4.3",
+    "Publisher": "Blender Foundation",
+    "InstallDate": "20250715",
+    "UninstallString": "MsiExec.exe /X{18B187C8-0D7C-4A4F-AA2B-67B10442BC1E}",
+    "QuietUninstallString": "",
+    "Type": "Win32",
+    "PackageId": "{18B187C8-0D7C-4A4F-AA2B-67B10442BC1E}"
+  },
+  {
+    "Name": "Clipchamp.Clipchamp",
+    "Version": "4.5.10920.0",
+    "Publisher": "yxz26nhyzhsrt",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "Clipchamp.Clipchamp_4.5.10920.0_x64__yxz26nhyzhsrt"
+  },
+  {
+    "Name": "Conexant SmartAudio",
+    "Version": "6.0.277.0",
+    "Publisher": "Conexant Systems",
+    "InstallDate": "",
+    "UninstallString": "C:\\Program Files\\Conexant\\SAII\\SETUP64.EXE -U -ISAII -SWTM=\"HDAudioAPI-D9A3021B-9BCE-458C-B667-9029C4EF4050,1801\"",
+    "QuietUninstallString": "",
+    "Type": "Win32",
+    "PackageId": "SAII"
+  },
+  {
+    "Name": "FileZilla 3.70.6",
+    "Version": "3.70.6",
+    "Publisher": "Tim Kosse",
+    "InstallDate": "",
+    "UninstallString": "\"C:\\Program Files\\FileZilla FTP Client\\uninstall.exe\"",
+    "QuietUninstallString": "",
+    "Type": "Win32",
+    "PackageId": "FileZilla Client"
+  },
+  {
+    "Name": "GIMP 3.2.4",
+    "Version": "3.2.4.0",
+    "Publisher": "The GIMP Team",
+    "InstallDate": "20260729",
+    "UninstallString": "\"C:\\Program Files\\GIMP 3\\uninst\\unins000.exe\"",
+    "QuietUninstallString": "\"C:\\Program Files\\GIMP 3\\uninst\\unins000.exe\" /SILENT",
+    "Type": "Win32",
+    "PackageId": "GIMP-3_is1"
+  },
+  {
+    "Name": "Git",
+    "Version": "2.55.0.3",
+    "Publisher": "The Git Development Community",
+    "InstallDate": "20260729",
+    "UninstallString": "\"C:\\Program Files\\Git\\unins001.exe\"",
+    "QuietUninstallString": "\"C:\\Program Files\\Git\\unins001.exe\" /SILENT",
+    "Type": "Win32",
+    "PackageId": "Git_is1"
+  },
+  {
+    "Name": "Google Chrome",
+    "Version": "151.0.7922.140",
+    "Publisher": "Google LLC",
+    "InstallDate": "20250715",
+    "UninstallString": "MsiExec.exe /X{5255A8A8-8890-3004-8533-2A831790FB70}",
+    "QuietUninstallString": "",
+    "Type": "Win32",
+    "PackageId": "{5255A8A8-8890-3004-8533-2A831790FB70}"
+  },
+  {
+    "Name": "Google Earth Pro",
+    "Version": "7.3.7.1327",
+    "Publisher": "Google",
+    "InstallDate": "20260923",
+    "UninstallString": "MsiExec.exe /I{3D62248F-DE98-4CEB-A1D9-E69073E085D3}",
+    "QuietUninstallString": "",
+    "Type": "Win32",
+    "PackageId": "{3D62248F-DE98-4CEB-A1D9-E69073E085D3}"
+  },
+  {
+    "Name": "LibreOffice 26.2.4.2",
+    "Version": "26.2.4.2",
+    "Publisher": "The Document Foundation",
+    "InstallDate": "20260729",
+    "UninstallString": "MsiExec.exe /I{FC347C1D-B207-4BF7-981E-64E59429B63C}",
+    "QuietUninstallString": "",
+    "Type": "Win32",
+    "PackageId": "{FC347C1D-B207-4BF7-981E-64E59429B63C}"
+  },
+  {
+    "Name": "Microsoft Edge",
+    "Version": "153.0.4234.48",
+    "Publisher": "Microsoft Corporation",
+    "InstallDate": "20260923",
+    "UninstallString": "\"C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\153.0.4234.48\\Installer\\setup.exe\" --uninstall --msedge --channel=stable --system-level --verbose-logging",
+    "QuietUninstallString": "",
+    "Type": "Win32",
+    "PackageId": "Microsoft Edge"
+  },
+  {
+    "Name": "Microsoft Office LTSC Professional Plus 2024 - de-de",
+    "Version": "16.0.17932.20910",
+    "Publisher": "Microsoft Corporation",
+    "InstallDate": "",
+    "UninstallString": "\"C:\\Program Files\\Common Files\\Microsoft Shared\\ClickToRun\\OfficeClickToRun.exe\" scenario=install scenariosubtype=ARP sourcetype=None productstoremove=ProPlus2024Volume.16_de-de_x-none culture=de-de version.16=16.0",
+    "QuietUninstallString": "",
+    "Type": "Win32",
+    "PackageId": "ProPlus2024Volume - de-de"
+  },
+  {
+    "Name": "Microsoft OneDrive",
+    "Version": "26.163.0823.0004",
+    "Publisher": "Microsoft Corporation",
+    "InstallDate": "",
+    "UninstallString": "\"C:\\Program Files\\Microsoft OneDrive\\26.163.0823.0004\\OneDriveSetup.exe\"  /uninstall  /allusers",
+    "QuietUninstallString": "",
+    "Type": "Win32",
+    "PackageId": "OneDriveSetup.exe"
+  },
+  {
+    "Name": "Microsoft Visual C++ v14 Redistributable (x64) - 14.50.35719",
+    "Version": "14.50.35719.0",
+    "Publisher": "Microsoft Corporation",
+    "InstallDate": "",
+    "UninstallString": "\"C:\\ProgramData\\Package Cache\\{91ee571b-0e8a-4c65-9eaf-2e2f5fc60c00}\\VC_redist.x64.exe\"  /uninstall",
+    "QuietUninstallString": "\"C:\\ProgramData\\Package Cache\\{91ee571b-0e8a-4c65-9eaf-2e2f5fc60c00}\\VC_redist.x64.exe\" /uninstall /quiet",
+    "Type": "Win32",
+    "PackageId": "{91ee571b-0e8a-4c65-9eaf-2e2f5fc60c00}"
+  },
+  {
+    "Name": "Microsoft Visual Studio Code",
+    "Version": "1.130.0",
+    "Publisher": "Microsoft Corporation",
+    "InstallDate": "20260729",
+    "UninstallString": "\"C:\\Program Files\\Microsoft VS Code\\unins000.exe\"",
+    "QuietUninstallString": "\"C:\\Program Files\\Microsoft VS Code\\unins000.exe\" /SILENT",
+    "Type": "Win32",
+    "PackageId": "{EA457B21-F73E-494C-ACAB-524FDE069978}_is1"
+  },
+  {
+    "Name": "Microsoft Windows Application Compatibility Fix Database",
+    "Version": "N/A",
+    "Publisher": "Unknown",
+    "InstallDate": "",
+    "UninstallString": "C:\\WINDOWS\\system32\\sdbinst.exe -u \"C:\\WINDOWS\\AppPatch\\CustomSDB\\{22221111-1111-1111-1111-111111111111}.sdb\"",
+    "QuietUninstallString": "",
+    "Type": "Win32",
+    "PackageId": "{22221111-1111-1111-1111-111111111111}.sdb"
+  },
+  {
+    "Name": "Microsoft.ApplicationCompatibilityEnhancements",
+    "Version": "1.2511.9.0",
+    "Publisher": "8wekyb3d8bbwe",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "Microsoft.ApplicationCompatibilityEnhancements_1.2511.9.0_x64__8wekyb3d8bbwe"
+  },
+  {
+    "Name": "Microsoft.AV1VideoExtension",
+    "Version": "2.0.30.0",
+    "Publisher": "8wekyb3d8bbwe",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "Microsoft.AV1VideoExtension_2.0.30.0_x64__8wekyb3d8bbwe"
+  },
+  {
+    "Name": "Microsoft.AVCEncoderVideoExtension",
+    "Version": "1.1.23.0",
+    "Publisher": "8wekyb3d8bbwe",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "Microsoft.AVCEncoderVideoExtension_1.1.23.0_x64__8wekyb3d8bbwe"
+  },
+  {
+    "Name": "Microsoft.BingNews",
+    "Version": "4.56.21872.0",
+    "Publisher": "8wekyb3d8bbwe",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "Microsoft.BingNews_4.56.21872.0_x64__8wekyb3d8bbwe"
+  },
+  {
+    "Name": "Microsoft.BingSearch",
+    "Version": "1.1.43.0",
+    "Publisher": "8wekyb3d8bbwe",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "Microsoft.BingSearch_1.1.43.0_x64__8wekyb3d8bbwe"
+  },
+  {
+    "Name": "Microsoft.BingWeather",
+    "Version": "4.54.63045.0",
+    "Publisher": "8wekyb3d8bbwe",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "Microsoft.BingWeather_4.54.63045.0_x64__8wekyb3d8bbwe"
+  },
+  {
+    "Name": "Microsoft.Copilot",
+    "Version": "1.25121.84.0",
+    "Publisher": "8wekyb3d8bbwe",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "Microsoft.Copilot_1.25121.84.0_x64__8wekyb3d8bbwe"
+  },
+  {
+    "Name": "Microsoft.Edge.GameAssist",
+    "Version": "1.0.4019.0",
+    "Publisher": "8wekyb3d8bbwe",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "Microsoft.Edge.GameAssist_1.0.4019.0_x64__8wekyb3d8bbwe"
+  },
+  {
+    "Name": "Microsoft.GamingApp",
+    "Version": "2608.1001.17.0",
+    "Publisher": "8wekyb3d8bbwe",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "Microsoft.GamingApp_2608.1001.17.0_x64__8wekyb3d8bbwe"
+  },
+  {
+    "Name": "Microsoft.GetHelp",
+    "Version": "10.2409.42162.0",
+    "Publisher": "8wekyb3d8bbwe",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "Microsoft.GetHelp_10.2409.42162.0_x64__8wekyb3d8bbwe"
+  },
+  {
+    "Name": "Microsoft.HEIFImageExtension",
+    "Version": "1.2.48.0",
+    "Publisher": "8wekyb3d8bbwe",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "Microsoft.HEIFImageExtension_1.2.48.0_x64__8wekyb3d8bbwe"
+  },
+  {
+    "Name": "Microsoft.HEVCVideoExtension",
+    "Version": "2.4.45.0",
+    "Publisher": "8wekyb3d8bbwe",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "Microsoft.HEVCVideoExtension_2.4.45.0_x64__8wekyb3d8bbwe"
+  },
+  {
+    "Name": "Microsoft.LanguageExperiencePackde-DE",
+    "Version": "26100.169.270.0",
+    "Publisher": "8wekyb3d8bbwe",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "Microsoft.LanguageExperiencePackde-DE_26100.169.270.0_neutral__8wekyb3d8bbwe"
+  },
+  {
+    "Name": "Microsoft.MicrosoftEdge.Stable",
+    "Version": "153.0.4234.48",
+    "Publisher": "8wekyb3d8bbwe",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "Microsoft.MicrosoftEdge.Stable_153.0.4234.48_neutral__8wekyb3d8bbwe"
+  },
+  {
+    "Name": "Microsoft.MicrosoftOfficeHub",
+    "Version": "19.2608.46011.0",
+    "Publisher": "8wekyb3d8bbwe",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "Microsoft.MicrosoftOfficeHub_19.2608.46011.0_x64__8wekyb3d8bbwe"
+  },
+  {
+    "Name": "Microsoft.MicrosoftSolitaireCollection",
+    "Version": "4.26.7290.0",
+    "Publisher": "8wekyb3d8bbwe",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "Microsoft.MicrosoftSolitaireCollection_4.26.7290.0_x64__8wekyb3d8bbwe"
+  },
+  {
+    "Name": "Microsoft.MicrosoftStickyNotes",
+    "Version": "4.0.6104.0",
+    "Publisher": "8wekyb3d8bbwe",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "Microsoft.MicrosoftStickyNotes_4.0.6104.0_x64__8wekyb3d8bbwe"
+  },
+  {
+    "Name": "Microsoft.MPEG2VideoExtension",
+    "Version": "1.2.13.0",
+    "Publisher": "8wekyb3d8bbwe",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "Microsoft.MPEG2VideoExtension_1.2.13.0_x64__8wekyb3d8bbwe"
+  },
+  {
+    "Name": "Microsoft.OneDriveSync",
+    "Version": "26163.823.4.0",
+    "Publisher": "8wekyb3d8bbwe",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "Microsoft.OneDriveSync_26163.823.4.0_neutral__8wekyb3d8bbwe"
+  },
+  {
+    "Name": "Microsoft.OutlookForWindows",
+    "Version": "1.2025.702.500",
+    "Publisher": "8wekyb3d8bbwe",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "Microsoft.OutlookForWindows_1.2025.702.500_x64__8wekyb3d8bbwe"
+  },
+  {
+    "Name": "Microsoft.Paint",
+    "Version": "11.2605.71.0",
+    "Publisher": "8wekyb3d8bbwe",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "Microsoft.Paint_11.2605.71.0_x64__8wekyb3d8bbwe"
+  },
+  {
+    "Name": "Microsoft.PowerAutomateDesktop",
+    "Version": "1.0.2122.0",
+    "Publisher": "8wekyb3d8bbwe",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "Microsoft.PowerAutomateDesktop_1.0.2122.0_x64__8wekyb3d8bbwe"
+  },
+  {
+    "Name": "Microsoft.RawImageExtension",
+    "Version": "2.5.24.0",
+    "Publisher": "8wekyb3d8bbwe",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "Microsoft.RawImageExtension_2.5.24.0_x64__8wekyb3d8bbwe"
+  },
+  {
+    "Name": "Microsoft.ScreenSketch",
+    "Version": "11.2605.36.0",
+    "Publisher": "8wekyb3d8bbwe",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "Microsoft.ScreenSketch_11.2605.36.0_x64__8wekyb3d8bbwe"
+  },
+  {
+    "Name": "Microsoft.StartExperiencesApp",
+    "Version": "1.380.2.0",
+    "Publisher": "8wekyb3d8bbwe",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "Microsoft.StartExperiencesApp_1.380.2.0_x64__8wekyb3d8bbwe"
+  },
+  {
+    "Name": "Microsoft.StorePurchaseApp",
+    "Version": "22606.1401.3.0",
+    "Publisher": "8wekyb3d8bbwe",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "Microsoft.StorePurchaseApp_22606.1401.3.0_x64__8wekyb3d8bbwe"
+  },
+  {
+    "Name": "Microsoft.Todos",
+    "Version": "0.176.7601.0",
+    "Publisher": "8wekyb3d8bbwe",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "Microsoft.Todos_0.176.7601.0_x64__8wekyb3d8bbwe"
+  },
+  {
+    "Name": "Microsoft.VisualStudioCode",
+    "Version": "1.0.130.0",
+    "Publisher": "8wekyb3d8bbwe",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "Microsoft.VisualStudioCode_1.0.130.0_neutral__8wekyb3d8bbwe"
+  },
+  {
+    "Name": "Microsoft.VP9VideoExtensions",
+    "Version": "1.2.20.0",
+    "Publisher": "8wekyb3d8bbwe",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "Microsoft.VP9VideoExtensions_1.2.20.0_x64__8wekyb3d8bbwe"
+  },
+  {
+    "Name": "Microsoft.WebMediaExtensions",
+    "Version": "2.1.38.0",
+    "Publisher": "8wekyb3d8bbwe",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "Microsoft.WebMediaExtensions_2.1.38.0_x64__8wekyb3d8bbwe"
+  },
+  {
+    "Name": "Microsoft.WebpImageExtension",
+    "Version": "1.2.14.0",
+    "Publisher": "8wekyb3d8bbwe",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "Microsoft.WebpImageExtension_1.2.14.0_x64__8wekyb3d8bbwe"
+  },
+  {
+    "Name": "Microsoft.WidgetsPlatformRuntime",
+    "Version": "1.6.19.0",
+    "Publisher": "8wekyb3d8bbwe",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "Microsoft.WidgetsPlatformRuntime_1.6.19.0_x64__8wekyb3d8bbwe"
+  },
+  {
+    "Name": "Microsoft.Windows.DevHome",
+    "Version": "0.0.0.0",
+    "Publisher": "8wekyb3d8bbwe",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "Microsoft.Windows.DevHome_0.0.0.0_x64__8wekyb3d8bbwe"
+  },
+  {
+    "Name": "Microsoft.Windows.Photos",
+    "Version": "2026.11060.2004.0",
+    "Publisher": "8wekyb3d8bbwe",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "Microsoft.Windows.Photos_2026.11060.2004.0_x64__8wekyb3d8bbwe"
+  },
+  {
+    "Name": "Microsoft.WindowsAlarms",
+    "Version": "1.1.154.0",
+    "Publisher": "8wekyb3d8bbwe",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "Microsoft.WindowsAlarms_1.1.154.0_x64__8wekyb3d8bbwe"
+  },
+  {
+    "Name": "Microsoft.WindowsCalculator",
+    "Version": "11.2606.0.0",
+    "Publisher": "8wekyb3d8bbwe",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "Microsoft.WindowsCalculator_11.2606.0.0_x64__8wekyb3d8bbwe"
+  },
+  {
+    "Name": "Microsoft.WindowsCamera",
+    "Version": "2026.2605.7.0",
+    "Publisher": "8wekyb3d8bbwe",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "Microsoft.WindowsCamera_2026.2605.7.0_x64__8wekyb3d8bbwe"
+  },
+  {
+    "Name": "Microsoft.WindowsFeedbackHub",
+    "Version": "2.2606.702.0",
+    "Publisher": "8wekyb3d8bbwe",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "Microsoft.WindowsFeedbackHub_2.2606.702.0_x64__8wekyb3d8bbwe"
+  },
+  {
+    "Name": "Microsoft.WindowsNotepad",
+    "Version": "11.2606.15.0",
+    "Publisher": "8wekyb3d8bbwe",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "Microsoft.WindowsNotepad_11.2606.15.0_x64__8wekyb3d8bbwe"
+  },
+  {
+    "Name": "Microsoft.WindowsSoundRecorder",
+    "Version": "1.1.119.0",
+    "Publisher": "8wekyb3d8bbwe",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "Microsoft.WindowsSoundRecorder_1.1.119.0_x64__8wekyb3d8bbwe"
+  },
+  {
+    "Name": "Microsoft.WindowsStore",
+    "Version": "22607.1401.3.0",
+    "Publisher": "8wekyb3d8bbwe",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "Microsoft.WindowsStore_22607.1401.3.0_x64__8wekyb3d8bbwe"
+  },
+  {
+    "Name": "Microsoft.WindowsTerminal",
+    "Version": "1.24.11911.0",
+    "Publisher": "8wekyb3d8bbwe",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "Microsoft.WindowsTerminal_1.24.11911.0_x64__8wekyb3d8bbwe"
+  },
+  {
+    "Name": "Microsoft.Xbox.TCUI",
+    "Version": "1.24.10001.0",
+    "Publisher": "8wekyb3d8bbwe",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "Microsoft.Xbox.TCUI_1.24.10001.0_x64__8wekyb3d8bbwe"
+  },
+  {
+    "Name": "Microsoft.XboxGamingOverlay",
+    "Version": "7.326.7271.0",
+    "Publisher": "8wekyb3d8bbwe",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "Microsoft.XboxGamingOverlay_7.326.7271.0_x64__8wekyb3d8bbwe"
+  },
+  {
+    "Name": "Microsoft.XboxIdentityProvider",
+    "Version": "12.130.16001.0",
+    "Publisher": "8wekyb3d8bbwe",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "Microsoft.XboxIdentityProvider_12.130.16001.0_x64__8wekyb3d8bbwe"
+  },
+  {
+    "Name": "Microsoft.XboxSpeechToTextOverlay",
+    "Version": "1.97.17002.0",
+    "Publisher": "8wekyb3d8bbwe",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "Microsoft.XboxSpeechToTextOverlay_1.97.17002.0_x64__8wekyb3d8bbwe"
+  },
+  {
+    "Name": "Microsoft.YourPhone",
+    "Version": "1.26071.164.0",
+    "Publisher": "8wekyb3d8bbwe",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "Microsoft.YourPhone_1.26071.164.0_x64__8wekyb3d8bbwe"
+  },
+  {
+    "Name": "Microsoft.ZuneMusic",
+    "Version": "11.2606.19.0",
+    "Publisher": "8wekyb3d8bbwe",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "Microsoft.ZuneMusic_11.2606.19.0_x64__8wekyb3d8bbwe"
+  },
+  {
+    "Name": "MicrosoftCorporationII.QuickAssist",
+    "Version": "2.0.29.0",
+    "Publisher": "8wekyb3d8bbwe",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "MicrosoftCorporationII.QuickAssist_2.0.29.0_x64__8wekyb3d8bbwe"
+  },
+  {
+    "Name": "MicrosoftWindows.Client.WebExperience",
+    "Version": "526.21100.40.0",
+    "Publisher": "cw5n1h2txyewy",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "MicrosoftWindows.Client.WebExperience_526.21100.40.0_x64__cw5n1h2txyewy"
+  },
+  {
+    "Name": "MicrosoftWindows.CrossDevice",
+    "Version": "1.26071.84.0",
+    "Publisher": "cw5n1h2txyewy",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "MicrosoftWindows.CrossDevice_1.26071.84.0_x64__cw5n1h2txyewy"
+  },
+  {
+    "Name": "Mozilla Firefox (x64 de)",
+    "Version": "153.0.1",
+    "Publisher": "Mozilla",
+    "InstallDate": "",
+    "UninstallString": "\"C:\\Program Files\\Mozilla Firefox\\uninstall\\helper.exe\"",
+    "QuietUninstallString": "",
+    "Type": "Win32",
+    "PackageId": "Mozilla Firefox"
+  },
+  {
+    "Name": "Mozilla Maintenance Service",
+    "Version": "153.0.1",
+    "Publisher": "Mozilla",
+    "InstallDate": "",
+    "UninstallString": "\"C:\\Program Files (x86)\\Mozilla Maintenance Service\\uninstall.exe\"",
+    "QuietUninstallString": "",
+    "Type": "Win32",
+    "PackageId": "MozillaMaintenanceService"
+  },
+  {
+    "Name": "MSTeams",
+    "Version": "26183.1903.4892.4448",
+    "Publisher": "8wekyb3d8bbwe",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "MSTeams_26183.1903.4892.4448_x64__8wekyb3d8bbwe"
+  },
+  {
+    "Name": "Notepad++ (64-bit x64)",
+    "Version": "8.9.7",
+    "Publisher": "Notepad++ Team",
+    "InstallDate": "",
+    "UninstallString": "\"C:\\Program Files\\Notepad++\\uninstall.exe\"",
+    "QuietUninstallString": "\"C:\\Program Files\\Notepad++\\uninstall.exe\" /S",
+    "Type": "Win32",
+    "PackageId": "Notepad++"
+  },
+  {
+    "Name": "NotepadPlusPlus",
+    "Version": "1.0.0.0",
+    "Publisher": "2247w0b46hfww",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "NotepadPlusPlus_1.0.0.0_neutral__2247w0b46hfww"
+  },
+  {
+    "Name": "Paint.NET",
+    "Version": "5.1.12",
+    "Publisher": "dotPDN LLC",
+    "InstallDate": "20260729",
+    "UninstallString": "MsiExec.exe /X{B33D3774-736A-43FD-BE83-76733BE4CB10}",
+    "QuietUninstallString": "",
+    "Type": "Win32",
+    "PackageId": "{B33D3774-736A-43FD-BE83-76733BE4CB10}"
+  },
+  {
+    "Name": "PuTTY release 0.84 (64-bit)",
+    "Version": "0.84.0.0",
+    "Publisher": "Simon Tatham",
+    "InstallDate": "20260729",
+    "UninstallString": "MsiExec.exe /X{FEE89B49-1A47-476C-864C-1D5076FC2891}",
+    "QuietUninstallString": "",
+    "Type": "Win32",
+    "PackageId": "{FEE89B49-1A47-476C-864C-1D5076FC2891}"
+  },
+  {
+    "Name": "Python Launcher",
+    "Version": "3.14.6150.0",
+    "Publisher": "Python Software Foundation",
+    "InstallDate": "20260729",
+    "UninstallString": "MsiExec.exe /X{0B1B5000-3C0E-41C0-83C4-4C914420AE93}",
+    "QuietUninstallString": "",
+    "Type": "Win32",
+    "PackageId": "{0B1B5000-3C0E-41C0-83C4-4C914420AE93}"
+  },
+  {
+    "Name": "Sierra Wireless Mobile Broadband Driver Package",
+    "Version": "7.77.5094.0103",
+    "Publisher": "Sierra Wireless, Inc.",
+    "InstallDate": "",
+    "UninstallString": "Rundll32 \"C:\\WINDOWS\\Sierra Wireless Inc\\bin\\DriverInst.dll\", LaunchDriverInst -rs -ied -wf=\"C:\\WINDOWS\\Sierra Wireless Inc\\bin\"",
+    "QuietUninstallString": "",
+    "Type": "Win32",
+    "PackageId": "SWILenovoDrvInstaller"
+  },
+  {
+    "Name": "TeamViewer",
+    "Version": "15.80.4",
+    "Publisher": "TeamViewer",
+    "InstallDate": "",
+    "UninstallString": "\"C:\\Program Files\\TeamViewer\\uninstall.exe\"",
+    "QuietUninstallString": "",
+    "Type": "Win32",
+    "PackageId": "TeamViewer"
+  },
+  {
+    "Name": "VLC media player",
+    "Version": "3.0.23",
+    "Publisher": "VideoLAN",
+    "InstallDate": "",
+    "UninstallString": "\"C:\\Program Files\\VideoLAN\\VLC\\uninstall.exe\"",
+    "QuietUninstallString": "",
+    "Type": "Win32",
+    "PackageId": "VLC media player"
+  },
+  {
+    "Name": "WinMerge",
+    "Version": "1.0.8.0",
+    "Publisher": "f62ztx9ss5ed4",
+    "InstallDate": "",
+    "UninstallString": "",
+    "QuietUninstallString": "",
+    "Type": "AppX",
+    "PackageId": "WinMerge_1.0.8.0_neutral__f62ztx9ss5ed4"
+  },
+  {
+    "Name": "WinMerge x64",
+    "Version": "2.16.58.0",
+    "Publisher": "Thingamahoochie Software",
+    "InstallDate": "20260729",
+    "UninstallString": "\"C:\\Program Files\\WinMerge\\unins000.exe\"",
+    "QuietUninstallString": "\"C:\\Program Files\\WinMerge\\unins000.exe\" /SILENT",
+    "Type": "Win32",
+    "PackageId": "WinMerge_is1"
+  },
+  {
+    "Name": "WinSCP 6.5.6",
+    "Version": "6.5.6",
+    "Publisher": "Martin Prikryl",
+    "InstallDate": "20260729",
+    "UninstallString": "\"C:\\Program Files (x86)\\WinSCP\\unins000.exe\"",
+    "QuietUninstallString": "\"C:\\Program Files (x86)\\WinSCP\\unins000.exe\" /SILENT",
+    "Type": "Win32",
+    "PackageId": "winscp3_is1"
+  },
+  {
+    "Name": "Zoom Workplace (64-bit)",
+    "Version": "7.1.43453",
+    "Publisher": "Zoom",
+    "InstallDate": "20260729",
+    "UninstallString": "MsiExec.exe /X{D8B5D74C-9929-4EE0-BA5F-80D68082E388}",
+    "QuietUninstallString": "",
+    "Type": "Win32",
+    "PackageId": "{D8B5D74C-9929-4EE0-BA5F-80D68082E388}"
+  }
+]
