@@ -9,6 +9,7 @@ Everything necessary to keep the freely available Caritas laptops up to speed.
 ├── software-inventory.md          # User retention policy checklist ([x] keep / [ ] remove)
 ├── software-inventory-current.md  # Post-synchronization verified inventory
 ├── scripts/
+│   ├── Configure-CaritasDefaults.ps1 # Machine-wide default app associations and ad-blocker policies
 │   ├── Configure-CaritasHardening.ps1 # Standalone system hardening and power baseline policy
 │   ├── generate_inventory.py      # Queries WSMan registry and AppX manifests to rebuild inventory
 │   ├── Reset-CaritasUserProfile.ps1 # Automated clean slate profile purge and isolation enforcement
@@ -127,6 +128,42 @@ Execution switches:
 Audit logs are continuously written to:
 ```
 C:\Caritas\Logs\UserReset.log
+```
+
+---
+
+## Default Application Associations & Ad-Blocker Automation
+
+The script [`scripts/Configure-CaritasDefaults.ps1`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/scripts/Configure-CaritasDefaults.ps1) establishes machine-wide software defaults and privacy protection across all Windows 11 editions. It compiles an OEM default associations catalog, registers it via Group Policy, imports it into the Windows image via DISM, and provisions uBlock Origin enterprise policies across all browsers.
+
+### Core Architecture & Capabilities
+- **Web Protocols & PDF Viewing:** Enforces Mozilla Firefox as default for `http`, `https`, `.html`, `.htm`, `.shtml`, `.xhtml`, and `.pdf`. Uses Firefox's isolated, sandboxed viewer to eliminate Edge cloud sign-in prompts.
+- **Media Playback:** Enforces VLC Media Player for all audio (`.mp3`, `.wav`, `.flac`, `.aac`, `.ogg`, `.m4a`, etc.), video (`.mp4`, `.mkv`, `.avi`, `.mov`, `.wmv`, `.flv`, `.webm`, etc.), and playlist (`.m3u`, `.pls`) formats.
+- **Document Handlers:** Maps proprietary Microsoft Office formats (`.docx`, `.xlsx`, `.pptx`, `.doc`, `.xls`, `.ppt`) to Microsoft Office, and OpenDocument formats (`.odt`, `.ods`, `.odp`, `.odg`, `.odf`) to LibreOffice.
+- **Archive Handlers:** Associates specialized compressed formats (`.7z`, `.rar`, `.tar`, `.gz`, `.bz2`, `.xz`, `.iso`) with 7-Zip, leaving standard `.zip` with Windows Explorer for ordinary patron navigation.
+- **OEM Catalog & Image Policy:** Generates `C:\Caritas\Config\AppAssociations.xml`, registers the machine policy `HKLM:\SOFTWARE\Policies\Microsoft\Windows\System` -> `DefaultAssociationsConfiguration`, and imports associations via `dism /Online /Import-DefaultAppAssociations`. Both existing sessions and newly generated profiles (such as `User`) automatically inherit these mappings.
+- **Multi-Browser Ad-Blocker Deployment:** Force-installs uBlock Origin across Mozilla Firefox, Google Chrome, and Microsoft Edge:
+  - Mozilla Firefox: Configured via `distribution/policies.json` and registry `ExtensionSettings` (`uBlock0@raymondhill.net`).
+  - Google Chrome & Microsoft Edge: Configured via `ExtensionInstallForcelist` with `ExtensionManifestV2Availability = 2` to preserve full webRequest filtering.
+  - Managed Filter Lists: Pre-configures EasyList, EasyPrivacy, Malware protection (URLhaus), EasyList Germany (`DEU-0`) for Austrian/German regional domains, and EasyList Cookie / uBlock Annoyances to automatically suppress intrusive GDPR cookie banners.
+
+### Running Locally on the Laptop (as Administrator)
+
+Open an elevated PowerShell prompt (**Run as Administrator**) and execute:
+
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process -Force
+C:\Caritas\Scripts\Configure-CaritasDefaults.ps1
+```
+
+Execution switches:
+- `-DryRun`: Previews all proposed association mappings and browser policies without making system modifications.
+- `-SkipAssociations`: Skips file and protocol default application associations (runs only browser ad-blocker configuration).
+- `-SkipExtensions`: Skips browser ad-blocker extension policies (runs only file and protocol association tasks).
+
+Audit logs are continuously written to:
+```
+C:\Caritas\Logs\Defaults.log
 ```
 
 ---
