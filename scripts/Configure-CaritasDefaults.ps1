@@ -23,7 +23,7 @@
     Omits browser extension and ad-blocker policy deployment.
 .NOTES
     Compatible with all Windows 11 editions (Home, Pro, Enterprise, Education).
-    Logs operations to C:\Caritas\Logs\Defaults.log.
+    Logs operations to logs\Defaults.log.
 #>
 [CmdletBinding()]
 param(
@@ -34,8 +34,13 @@ param(
 
 $ErrorActionPreference = "Continue"
 
-# 1. Logging Infrastructure
-$logDir = "C:\Caritas\Logs"
+# 1. Logging Infrastructure (Dynamically Resolved)
+$scriptDir = $PSScriptRoot
+if (-not $scriptDir) { $scriptDir = (Get-Item -Path ".").FullName }
+$baseDir = Split-Path -Path $scriptDir -Parent
+if (-not (Test-Path "$baseDir\scripts")) { $baseDir = $scriptDir }
+$configDir = Join-Path $baseDir "config"
+$logDir = Join-Path $baseDir "logs"
 if (-not (Test-Path $logDir)) {
     New-Item -ItemType Directory -Path $logDir -Force | Out-Null
 }
@@ -164,7 +169,6 @@ if (-not $SkipAssociations) {
     Add-Assoc ".iso" "7-Zip.iso" "7-Zip File Manager"
 
     # Build XML Payload
-    $configDir = "C:\Caritas\Config"
     if (-not (Test-Path $configDir)) {
         New-Item -ItemType Directory -Path $configDir -Force | Out-Null
     }
@@ -182,6 +186,7 @@ if (-not $SkipAssociations) {
         Write-DefaultsLog "  [DryRun] Would write $($associations.Count) associations to $xmlPath and apply via DISM." "INFO" ([ConsoleColor]::Gray)
     } else {
         [System.IO.File]::WriteAllLines($xmlPath, $xmlLines, [System.Text.Encoding]::UTF8)
+        & icacls.exe $xmlPath /grant "*S-1-5-11:(R)" /Q 2>$null
         Write-DefaultsLog "  Compiled OEM association catalog with $($associations.Count) mappings at $xmlPath." "ACTION" ([ConsoleColor]::Green)
 
         # Enforce DefaultAssociationsConfiguration Group Policy for all new profiles

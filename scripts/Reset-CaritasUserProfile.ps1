@@ -26,7 +26,7 @@
     Simulates the reset procedure and logs proposed actions without terminating sessions or deleting files.
 .NOTES
     Compatible with all Windows 11 editions (Home, Pro, Enterprise, Education).
-    Logs operations to C:\Caritas\Logs\UserReset.log.
+    Logs operations to logs\UserReset.log.
 #>
 [CmdletBinding()]
 param(
@@ -41,8 +41,12 @@ param(
 
 $ErrorActionPreference = "Continue"
 
-# 1. Logging Infrastructure
-$logDir = "C:\Caritas\Logs"
+# 1. Logging Infrastructure (Dynamically Resolved)
+$scriptDir = $PSScriptRoot
+if (-not $scriptDir) { $scriptDir = (Get-Item -Path ".").FullName }
+$baseDir = Split-Path -Path $scriptDir -Parent
+if (-not (Test-Path "$baseDir\scripts")) { $baseDir = $scriptDir }
+$logDir = Join-Path $baseDir "logs"
 if (-not (Test-Path $logDir)) {
     New-Item -ItemType Directory -Path $logDir -Force | Out-Null
 }
@@ -227,7 +231,7 @@ if (-not $DryRun) {
 }
 
 # 7. Provisioning Facilities (Scheduled Task, Desktop Shortcut, Boot Task)
-$scriptPath = "C:\Caritas\Scripts\Reset-CaritasUserProfile.ps1"
+$scriptPath = if ($PSCommandPath) { $PSCommandPath } else { Join-Path $scriptDir "Reset-CaritasUserProfile.ps1" }
 
 if ($RegisterTask -or $InstallAll) {
     Write-ResetLog "Configuring Elevated Scheduled Task 'Caritas-ResetUserSession'..." "INFO" ([ConsoleColor]::Yellow)
