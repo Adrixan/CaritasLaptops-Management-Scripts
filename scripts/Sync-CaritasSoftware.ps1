@@ -10,7 +10,7 @@
     5. Queries Windows Update online for all pending software, hardware driver, firmware, and optional updates dynamically for any manufacturer (Lenovo, HP, Dell, Asus, Acer, Surface, etc.), downloads them, and silently installs them.
 .NOTES
     Works on any standard Windows 10/11 laptop or desktop computer.
-    Logs operations with timestamps to C:\Caritas\Logs\SoftwareSync.log.
+    Logs operations with timestamps to logs\SoftwareSync.log.
 #>
 [CmdletBinding()]
 param(
@@ -21,8 +21,12 @@ param(
 
 $ErrorActionPreference = "Continue"
 
-# 1. Setup Logging Infrastructure
-$logDir = "C:\Caritas\Logs"
+# 1. Setup Logging Infrastructure (Dynamically Resolved)
+$scriptDir = $PSScriptRoot
+if (-not $scriptDir) { $scriptDir = (Get-Item -Path ".").FullName }
+$baseDir = Split-Path -Path $scriptDir -Parent
+if (-not (Test-Path "$baseDir\scripts")) { $baseDir = $scriptDir }
+$logDir = Join-Path $baseDir "logs"
 if (-not (Test-Path $logDir)) {
     New-Item -ItemType Directory -Path $logDir -Force | Out-Null
 }

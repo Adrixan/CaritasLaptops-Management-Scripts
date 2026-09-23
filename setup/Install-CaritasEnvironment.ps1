@@ -1,13 +1,13 @@
 #Requires -RunAsAdministrator
 <#
 .SYNOPSIS
-    Caritas Laptop Environment Installer & Shortcut Provisioner.
+    Caritas Laptop Environment & Shortcut Provisioner.
 .DESCRIPTION
-    Installs the Caritas Laptop Management Suite to C:\Caritas\:
-    - Sets up directory structure (Scripts, Config, Logs, Setup).
-    - Copies script suite, configuration files, and batch launchers.
-    - Creates elevated desktop shortcuts on administrator profiles.
-    - Optionally registers system tasks and starts the Control Center.
+    Initializes the local Caritas Laptop Management Suite in place:
+    - Resolves location dynamically (e.g. from Desktop, Downloads, or cloned repo).
+    - Creates local subdirectories (config, logs) without polluting C:\.
+    - Creates elevated desktop shortcuts on administrator profiles pointing to the local launchers.
+    - Optionally starts the Control Center immediately.
 #>
 [CmdletBinding()]
 param(
@@ -26,62 +26,49 @@ if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Adm
     exit
 }
 
-$sourceRoot = Split-Path -Path $PSScriptRoot -Parent
-if (-not (Test-Path "$sourceRoot\scripts")) {
-    $sourceRoot = $PSScriptRoot
+# 2. Dynamically Resolve Suite Root
+$scriptDir = $PSScriptRoot
+if (-not $scriptDir) { $scriptDir = (Get-Item -Path ".").FullName }
+
+$baseDir = Split-Path -Path $scriptDir -Parent
+if (-not (Test-Path "$baseDir\scripts")) {
+    $baseDir = $scriptDir
 }
 
-$targetBase = "C:\Caritas"
-$targetScripts = "$targetBase\Scripts"
-$targetConfig = "$targetBase\Config"
-$targetLogs = "$targetBase\Logs"
-$targetSetup = "$targetBase\Setup"
+$targetLogs = Join-Path $baseDir "logs"
+$targetConfig = Join-Path $baseDir "config"
 
 Write-Host "==============================================================" -ForegroundColor Cyan
 Write-Host "     CARITAS LAPTOP ENVIRONMENT INITIALISIERUNG              " -ForegroundColor Green
 Write-Host "==============================================================" -ForegroundColor Cyan
+Write-Host "Basispfad: $baseDir" -ForegroundColor Gray
 
-# 2. Directory Creation
-foreach ($dir in @($targetScripts, $targetConfig, $targetLogs, $targetSetup)) {
+# 3. Create Local Directories
+foreach ($dir in @($targetLogs, $targetConfig)) {
     if (-not (Test-Path $dir)) {
         New-Item -ItemType Directory -Path $dir -Force | Out-Null
         Write-Host "[+] Verzeichnis erstellt: $dir" -ForegroundColor Gray
     }
 }
 
-# 3. Copy Script Suite
-$sourceScripts = if (Test-Path "$sourceRoot\scripts") { "$sourceRoot\scripts" } else { "$sourceRoot" }
-if ($sourceScripts -ne $targetScripts) {
-    $psFiles = Get-ChildItem -Path $sourceScripts -Filter "*.ps1" -ErrorAction SilentlyContinue
-    foreach ($f in $psFiles) {
-        Copy-Item -Path $f.FullName -Destination $targetScripts -Force
-        Write-Host "[+] Skript kopiert: $($f.Name)" -ForegroundColor Gray
-    }
+# 4. Locate Launchers
+$guiLauncher = if (Test-Path "$baseDir\Caritas-Verwaltung.cmd") {
+    "$baseDir\Caritas-Verwaltung.cmd"
+} elseif (Test-Path "$baseDir\setup\Caritas-Verwaltung.cmd") {
+    "$baseDir\setup\Caritas-Verwaltung.cmd"
 } else {
-    Write-Host "[*] Skripte bereits in $targetScripts vorhanden." -ForegroundColor Gray
+    "$baseDir\scripts\Caritas-ControlCenter-GUI.ps1"
 }
 
-# 4. Copy Setup & Launchers
-$sourceSetup = if (Test-Path "$sourceRoot\setup") { "$sourceRoot\setup" } else { "$sourceRoot" }
-if ($sourceSetup -ne $targetSetup) {
-    $cmdFiles = Get-ChildItem -Path $sourceSetup -Filter "*.cmd" -ErrorAction SilentlyContinue
-    foreach ($f in $cmdFiles) {
-        Copy-Item -Path $f.FullName -Destination $targetSetup -Force
-        Write-Host "[+] Launcher kopiert: $($f.Name)" -ForegroundColor Gray
-    }
+$tuiLauncher = if (Test-Path "$baseDir\Caritas-Verwaltung-TUI.cmd") {
+    "$baseDir\Caritas-Verwaltung-TUI.cmd"
+} elseif (Test-Path "$baseDir\setup\Caritas-Verwaltung-TUI.cmd") {
+    "$baseDir\setup\Caritas-Verwaltung-TUI.cmd"
 } else {
-    Write-Host "[*] Setup-Dateien bereits in $targetSetup vorhanden." -ForegroundColor Gray
+    "$baseDir\scripts\Caritas-ControlCenter.ps1"
 }
 
-# 5. Copy Configuration & Version Metadata
-$verFile = if (Test-Path "$sourceRoot\version.json") { "$sourceRoot\version.json" } else { "$sourceRoot\Config\version.json" }
-$targetVer = "$targetConfig\version.json"
-if ((Test-Path $verFile) -and ($verFile -ne $targetVer)) {
-    Copy-Item -Path $verFile -Destination $targetConfig -Force
-    Write-Host "[+] Konfiguration kopiert: version.json" -ForegroundColor Gray
-}
-
-# 6. Deploy Desktop Shortcuts to Administrator Profiles
+# 5. Deploy Desktop Shortcuts to Administrator Profiles
 $wsh = New-Object -ComObject WScript.Shell
 
 $adminProfiles = @()
@@ -93,17 +80,13 @@ foreach ($p in $userProfiles) {
     }
 }
 
-# Primary GUI Shortcut
-$guiLauncher = "$targetSetup\Caritas-Verwaltung.cmd"
-$tuiLauncher = "$targetSetup\Caritas-Verwaltung-TUI.cmd"
-
 foreach ($dPath in $adminProfiles) {
     try {
         # GUI Shortcut
         $guiLnkPath = Join-Path $dPath "Caritas Verwaltung.lnk"
         $lnkGui = $wsh.CreateShortcut($guiLnkPath)
         $lnkGui.TargetPath = $guiLauncher
-        $lnkGui.WorkingDirectory = $targetSetup
+        $lnkGui.WorkingDirectory = $baseDir
         $lnkGui.Description = "Caritas Laptop Kontrollzentrum (Grafische Verwaltungsoberfläche)"
         $lnkGui.IconLocation = "$env:SystemRoot\System32\shell32.dll,277"
         $lnkGui.Save()
@@ -113,7 +96,7 @@ foreach ($dPath in $adminProfiles) {
         $tuiLnkPath = Join-Path $dPath "Caritas Verwaltung (Terminal).lnk"
         $lnkTui = $wsh.CreateShortcut($tuiLnkPath)
         $lnkTui.TargetPath = $tuiLauncher
-        $lnkTui.WorkingDirectory = $targetSetup
+        $lnkTui.WorkingDirectory = $baseDir
         $lnkTui.Description = "Caritas Laptop Kontrollzentrum (Terminal-Modus)"
         $lnkTui.IconLocation = "$env:SystemRoot\System32\powershell.exe,0"
         $lnkTui.Save()
@@ -124,14 +107,14 @@ foreach ($dPath in $adminProfiles) {
 }
 
 Write-Host "==============================================================" -ForegroundColor Cyan
-Write-Host "  INSTALLATION ERFOLGREICH ABGESCHLOSSEN!" -ForegroundColor Green
-Write-Host "  Desktop-Verknüpfungen 'Caritas Verwaltung' sind einsatzbereit." -ForegroundColor Green
+Write-Host "  INITIALISIERUNG ERFOLGREICH ABGESCHLOSSEN!" -ForegroundColor Green
+Write-Host "  Die Verwaltungswerkzeuge sind einsatzbereit." -ForegroundColor Green
 Write-Host "==============================================================" -ForegroundColor Cyan
 
 if ($LaunchControlCenter) {
     if ($TerminalOnly) {
-        Start-Process powershell.exe -ArgumentList "-NoExit -NoProfile -ExecutionPolicy Bypass -File `"$targetScripts\Caritas-ControlCenter.ps1`""
+        Start-Process cmd.exe -ArgumentList "/c `"$tuiLauncher`""
     } else {
-        Start-Process powershell.exe -ArgumentList "-Sta -NoProfile -ExecutionPolicy Bypass -File `"$targetScripts\Caritas-ControlCenter-GUI.ps1`""
+        Start-Process cmd.exe -ArgumentList "/c `"$guiLauncher`""
     }
 }

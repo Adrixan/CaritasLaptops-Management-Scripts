@@ -17,12 +17,14 @@ jobs:
 
       - name: Create Release Distribution Bundle
         run: |
-          mkdir -p build/Caritas/Scripts build/Caritas/Setup build/Caritas/Config
-          cp scripts/*.ps1 build/Caritas/Scripts/
-          cp setup/*.ps1 build/Caritas/Setup/
-          cp setup/*.cmd build/Caritas/Setup/ 2>/dev/null || true
-          cp version.json build/Caritas/Config/
-          cp README.md software-inventory*.md build/Caritas/
+          mkdir -p build/CaritasScripts/scripts build/CaritasScripts/setup build/CaritasScripts/config
+          cp Caritas-Verwaltung*.cmd build/CaritasScripts/
+          cp scripts/*.ps1 build/CaritasScripts/scripts/
+          cp setup/*.ps1 build/CaritasScripts/setup/
+          cp setup/*.cmd build/CaritasScripts/setup/ 2>/dev/null || true
+          cp version.json build/CaritasScripts/
+          cp version.json build/CaritasScripts/config/
+          cp README.md software-inventory*.md build/CaritasScripts/
           cd build && zip -r ../CaritasScripts.zip . && cd ..
           sha256sum CaritasScripts.zip > CaritasScripts.zip.sha256
           echo "Generated SHA256 checksum:"

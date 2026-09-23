@@ -23,7 +23,7 @@
     Omits privacy, telemetry, and Start Menu web search settings.
 .NOTES
     Runs standalone directly on the host machine without external dependencies or domain requirements.
-    Logs operations to C:\Caritas\Logs\Hardening.log.
+    Logs operations to logs\Hardening.log.
 #>
 [CmdletBinding()]
 param(
@@ -37,8 +37,12 @@ param(
 
 $ErrorActionPreference = "Continue"
 
-# 1. Setup Logging Infrastructure
-$logDir = "C:\Caritas\Logs"
+# 1. Setup Logging Infrastructure (Dynamically Resolved)
+$scriptDir = $PSScriptRoot
+if (-not $scriptDir) { $scriptDir = (Get-Item -Path ".").FullName }
+$baseDir = Split-Path -Path $scriptDir -Parent
+if (-not (Test-Path "$baseDir\scripts")) { $baseDir = $scriptDir }
+$logDir = Join-Path $baseDir "logs"
 if (-not (Test-Path $logDir)) {
     New-Item -ItemType Directory -Path $logDir -Force | Out-Null
 }

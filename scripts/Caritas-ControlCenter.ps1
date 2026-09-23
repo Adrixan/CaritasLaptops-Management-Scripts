@@ -11,7 +11,7 @@
     - Automatically requests UAC elevation if launched without administrative tokens.
 .NOTES
     Compatible with all Windows 11 editions (Home, Pro, Enterprise, Education).
-    Logs operations to C:\Caritas\Logs\ControlCenter.log.
+    Logs operations to logs\ControlCenter.log.
 #>
 [CmdletBinding()]
 param(
@@ -27,15 +27,29 @@ if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Adm
     exit
 }
 
+# 2. Environment & Directories (Dynamically Resolved)
 $ErrorActionPreference = "Continue"
-$scriptDir = "C:\Caritas\Scripts"
-$configDir = "C:\Caritas\Config"
-$logDir = "C:\Caritas\Logs"
+
+$scriptDir = $PSScriptRoot
+if (-not $scriptDir) { $scriptDir = (Get-Item -Path ".").FullName }
+
+$baseDir = Split-Path -Path $scriptDir -Parent
+if (-not (Test-Path "$baseDir\scripts")) {
+    $baseDir = $scriptDir
+}
+
+$configDir = Join-Path $baseDir "config"
+$logDir = Join-Path $baseDir "logs"
+$stagingDir = Join-Path $env:TEMP "CaritasStaging"
+
 foreach ($dir in @($scriptDir, $configDir, $logDir)) {
     if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
 }
 
-$localVersionFile = Join-Path $configDir "version.json"
+$localVersionFile = Join-Path $baseDir "version.json"
+if (-not (Test-Path $localVersionFile)) {
+    $localVersionFile = Join-Path $configDir "version.json"
+}
 $logFile = Join-Path $logDir "ControlCenter.log"
 
 try {
@@ -104,7 +118,7 @@ function Invoke-SelfUpdate {
         [string]$TargetVersion = "Neu"
     )
     Write-Host "Lade Aktualisierungspaket herunter..." -ForegroundColor Cyan
-    $stagingDir = "C:\Caritas\Staging"
+    $stagingDir = Join-Path $env:TEMP "CaritasStaging"
     if (Test-Path $stagingDir) { Remove-Item -Path $stagingDir -Recurse -Force -ErrorAction SilentlyContinue }
     New-Item -ItemType Directory -Path $stagingDir -Force | Out-Null
     $zipPath = Join-Path $stagingDir "update.zip"
@@ -116,12 +130,29 @@ function Invoke-SelfUpdate {
 
         # Locate extracted scripts folder
         $extractedRoot = Get-ChildItem -Path $stagingDir -Directory | Select-Object -First 1
-        $srcScripts = Join-Path $extractedRoot.FullName "scripts"
-        $srcVersion = Join-Path $extractedRoot.FullName "version.json"
+        $srcScripts = if ($extractedRoot -and (Test-Path "$($extractedRoot.FullName)\scripts")) {
+            "$($extractedRoot.FullName)\scripts"
+        } elseif (Test-Path "$stagingDir\scripts") {
+            "$stagingDir\scripts"
+        } elseif ($extractedRoot) {
+            $extractedRoot.FullName
+        } else {
+            $stagingDir
+        }
+        $srcVersion = if ($extractedRoot -and (Test-Path "$($extractedRoot.FullName)\version.json")) {
+            "$($extractedRoot.FullName)\version.json"
+        } elseif (Test-Path "$stagingDir\version.json") {
+            "$stagingDir\version.json"
+        } else {
+            $null
+        }
 
-        if (Test-Path $srcScripts) {
-            Copy-Item -Path "$srcScripts\*.ps1" -Destination $scriptDir -Force
-            if (Test-Path $srcVersion) { Copy-Item -Path $srcVersion -Destination $localVersionFile -Force }
+        $psFiles = Get-ChildItem -Path $srcScripts -Filter "*.ps1" -ErrorAction SilentlyContinue
+        if ($psFiles) {
+            foreach ($f in $psFiles) {
+                Copy-Item -Path $f.FullName -Destination $scriptDir -Force
+            }
+            if ($srcVersion -and (Test-Path $srcVersion)) { Copy-Item -Path $srcVersion -Destination $localVersionFile -Force }
             Write-Host "[ERFOLG] Skripte erfolgreich auf Version $TargetVersion aktualisiert!" -ForegroundColor Green
             Write-CCLog "Self-update successful to version $TargetVersion"
             Start-Sleep -Seconds 2
@@ -193,7 +224,7 @@ function Show-AuditLogs {
     Write-Host "==============================================================" -ForegroundColor Cyan
     Write-Host "               CARITAS AUDIT LOG ÜBERSICHT                   " -ForegroundColor Yellow
     Write-Host "==============================================================" -ForegroundColor Cyan
-    Write-Host "Verfügbare Protokolle in C:\Caritas\Logs:"
+    Write-Host "Verfügbare Protokolle in $($logDir):"
     $logs = Get-ChildItem -Path $logDir -Filter "*.log" -ErrorAction SilentlyContinue
     if (-not $logs) {
         Write-Host "Keine Logdateien gefunden." -ForegroundColor Gray

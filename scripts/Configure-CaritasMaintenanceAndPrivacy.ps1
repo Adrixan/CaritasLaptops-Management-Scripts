@@ -29,7 +29,7 @@
     Omits Storage Sense and scheduled maintenance task configuration.
 .NOTES
     Compatible with all Windows 11 editions (Home, Pro, Enterprise, Education).
-    Logs operations to C:\Caritas\Logs\MaintenancePrivacy.log.
+    Logs operations to logs\MaintenancePrivacy.log.
 #>
 [CmdletBinding()]
 param(
@@ -42,8 +42,12 @@ param(
 
 $ErrorActionPreference = "Continue"
 
-# 1. Logging Infrastructure
-$logDir = "C:\Caritas\Logs"
+# 1. Logging Infrastructure (Dynamically Resolved)
+$scriptDir = $PSScriptRoot
+if (-not $scriptDir) { $scriptDir = (Get-Item -Path ".").FullName }
+$baseDir = Split-Path -Path $scriptDir -Parent
+if (-not (Test-Path "$baseDir\scripts")) { $baseDir = $scriptDir }
+$logDir = Join-Path $baseDir "logs"
 if (-not (Test-Path $logDir)) {
     New-Item -ItemType Directory -Path $logDir -Force | Out-Null
 }

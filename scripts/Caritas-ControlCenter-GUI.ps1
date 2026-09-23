@@ -14,7 +14,7 @@
     - Bidirectional handoff to the Terminal User Interface (TUI).
 .NOTES
     Compatible with all Windows 11 editions (Home, Pro, Enterprise, Education).
-    Logs operations to C:\Caritas\Logs\ControlCenter.log.
+    Logs operations to logs\ControlCenter.log.
 #>
 [CmdletBinding()]
 param()
@@ -33,18 +33,29 @@ if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Adm
     exit
 }
 
-# 3. Environment & Directories
+# 3. Environment & Directories (Dynamically Resolved)
 $ErrorActionPreference = "Continue"
-$scriptDir = "C:\Caritas\Scripts"
-$configDir = "C:\Caritas\Config"
-$logDir = "C:\Caritas\Logs"
-$stagingDir = "C:\Caritas\Staging"
+
+$scriptDir = $PSScriptRoot
+if (-not $scriptDir) { $scriptDir = (Get-Item -Path ".").FullName }
+
+$baseDir = Split-Path -Path $scriptDir -Parent
+if (-not (Test-Path "$baseDir\scripts")) {
+    $baseDir = $scriptDir
+}
+
+$configDir = Join-Path $baseDir "config"
+$logDir = Join-Path $baseDir "logs"
+$stagingDir = Join-Path $env:TEMP "CaritasStaging"
 
 foreach ($dir in @($scriptDir, $configDir, $logDir)) {
     if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
 }
 
-$localVersionFile = Join-Path $configDir "version.json"
+$localVersionFile = Join-Path $baseDir "version.json"
+if (-not (Test-Path $localVersionFile)) {
+    $localVersionFile = Join-Path $configDir "version.json"
+}
 $logFile = Join-Path $logDir "ControlCenter.log"
 
 Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
@@ -295,12 +306,29 @@ function Invoke-GuiSelfUpdate {
         Expand-Archive -Path $zipPath -DestinationPath $stagingDir -Force
 
         $extractedRoot = Get-ChildItem -Path $stagingDir -Directory | Select-Object -First 1
-        $srcScripts = Join-Path $extractedRoot.FullName "scripts"
-        $srcVersion = Join-Path $extractedRoot.FullName "version.json"
+        $srcScripts = if ($extractedRoot -and (Test-Path "$($extractedRoot.FullName)\scripts")) {
+            "$($extractedRoot.FullName)\scripts"
+        } elseif (Test-Path "$stagingDir\scripts") {
+            "$stagingDir\scripts"
+        } elseif ($extractedRoot) {
+            $extractedRoot.FullName
+        } else {
+            $stagingDir
+        }
+        $srcVersion = if ($extractedRoot -and (Test-Path "$($extractedRoot.FullName)\version.json")) {
+            "$($extractedRoot.FullName)\version.json"
+        } elseif (Test-Path "$stagingDir\version.json") {
+            "$stagingDir\version.json"
+        } else {
+            $null
+        }
 
-        if (Test-Path $srcScripts) {
-            Copy-Item -Path "$srcScripts\*.ps1" -Destination $scriptDir -Force
-            if (Test-Path $srcVersion) { Copy-Item -Path $srcVersion -Destination $localVersionFile -Force }
+        $psFiles = Get-ChildItem -Path $srcScripts -Filter "*.ps1" -ErrorAction SilentlyContinue
+        if ($psFiles) {
+            foreach ($f in $psFiles) {
+                Copy-Item -Path $f.FullName -Destination $scriptDir -Force
+            }
+            if ($srcVersion -and (Test-Path $srcVersion)) { Copy-Item -Path $srcVersion -Destination $localVersionFile -Force }
             $newVer = Get-LocalVersion
             Append-LogLine "[ERFOLG] Skripte wurden erfolgreich auf Version $newVer aktualisiert!`r`n"
             Write-CCLog "Self-update applied successfully to version $newVer"
@@ -635,7 +663,7 @@ $xaml = @"
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <TextBlock Text="Protokollierung aktiv in C:\Caritas\Logs\ControlCenter.log" Foreground="#52525B" FontSize="11" Grid.Column="0" VerticalAlignment="Center"/>
+                <TextBlock x:Name="lblLogPath" Text="Protokollierung aktiv in Logs\ControlCenter.log" Foreground="#52525B" FontSize="11" Grid.Column="0" VerticalAlignment="Center"/>
                 <TextBlock Text="Caritas Laptop Management Suite" Foreground="#52525B" FontSize="11" Grid.Column="1" VerticalAlignment="Center"/>
             </Grid>
         </Border>
@@ -667,6 +695,8 @@ $lblStatus = $window.FindName("lblStatus")
 $btnStop = $window.FindName("btnStop")
 $txtConsole = $window.FindName("txtConsole")
 $progressBar = $window.FindName("progressBar")
+$lblLogPath = $window.FindName("lblLogPath")
+if ($lblLogPath) { $lblLogPath.Text = "Protokollierung aktiv in $logFile" }
 
 # Populate System Info
 $osInfo = Get-CimInstance -ClassName Win32_OperatingSystem -ErrorAction SilentlyContinue
