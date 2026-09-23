@@ -11,6 +11,7 @@ Everything necessary to keep the freely available Caritas laptops up to speed.
 ├── scripts/
 │   ├── Configure-CaritasDefaults.ps1 # Machine-wide default app associations and ad-blocker policies
 │   ├── Configure-CaritasHardening.ps1 # Standalone system hardening and power baseline policy
+│   ├── Configure-CaritasMaintenanceAndPrivacy.ps1 # Credential defense, USB lockdown, and maintenance
 │   ├── generate_inventory.py      # Queries WSMan registry and AppX manifests to rebuild inventory
 │   ├── Reset-CaritasUserProfile.ps1 # Automated clean slate profile purge and isolation enforcement
 │   ├── Sync-CaritasSoftware.ps1   # Core policy enforcement, winget update, and Windows Update script
@@ -164,6 +165,39 @@ Execution switches:
 Audit logs are continuously written to:
 ```
 C:\Caritas\Logs\Defaults.log
+```
+
+---
+
+## Maintenance, Browser Privacy & USB Lockdown Automation
+
+The script [`scripts/Configure-CaritasMaintenanceAndPrivacy.ps1`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/scripts/Configure-CaritasMaintenanceAndPrivacy.ps1) establishes essential privacy protections, USB removable media restrictions, desktop cleanliness, and automated storage maintenance.
+
+### Core Modules
+- **Module 1 (Browser Credential & Privacy Defense):** Eliminates patron credential leakage across Mozilla Firefox, Google Chrome, and Microsoft Edge by disabling password saving (`PasswordManagerEnabled = 0`, `OfferToSaveLogins = 0`), payment card autofill, and physical address caching. Suppresses commercial news feeds, promotional widgets, and telemetry, configuring a clean DuckDuckGo search homepage.
+- **Module 2 (Removable Storage Execution Denial):** Enforces `Deny_Execute = 1` on the Removable Storage Devices class (`{53f5630d-b6bf-11d0-94f2-00a0c91efb8b}`). Blocks execution of `.exe`, `.scr`, `.bat`, or scripts directly from USB thumb drives while retaining 100% read/write access for documents, PDFs, pictures, and media files.
+- **Module 3 (Public Desktop Hygiene):** Scans `C:\Users\Public\Desktop` and purges orphaned `.lnk` shortcuts whose target binaries have been uninstalled, ensuring an uncluttered workspace for patrons.
+- **Module 4 (Automated Storage Sense & Component Cleanup):** Enables Windows Storage Sense machine-wide to maintain free SSD space. Registers an automated monthly scheduled task (`Caritas-MonthlyMaintenance`) running under `NT AUTHORITY\SYSTEM` to execute DISM Component Store cleanup (`dism /StartComponentCleanup`) and purge old temporary files.
+
+### Running Locally on the Laptop (as Administrator)
+
+Open an elevated PowerShell prompt (**Run as Administrator**) and execute:
+
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process -Force
+C:\Caritas\Scripts\Configure-CaritasMaintenanceAndPrivacy.ps1
+```
+
+Execution switches:
+- `-DryRun`: Previews all proposed policy changes, dead shortcut removals, and maintenance tasks without making modifications.
+- `-SkipBrowserPrivacy`: Skips browser password manager and autofill lockdown.
+- `-SkipUsbLockdown`: Skips USB removable media execution restrictions.
+- `-SkipDesktopHygiene`: Skips public desktop dead shortcut scanning and purging.
+- `-SkipStorageMaintenance`: Skips Storage Sense policy and monthly maintenance task registration.
+
+Audit logs are continuously written to:
+```
+C:\Caritas\Logs\MaintenancePrivacy.log
 ```
 
 ---
