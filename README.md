@@ -11,6 +11,7 @@ Everything necessary to keep the freely available Caritas laptops up to speed.
 ├── scripts/
 │   ├── Configure-CaritasHardening.ps1 # Standalone system hardening and power baseline policy
 │   ├── generate_inventory.py      # Queries WSMan registry and AppX manifests to rebuild inventory
+│   ├── Reset-CaritasUserProfile.ps1 # Automated clean slate profile purge and isolation enforcement
 │   ├── Sync-CaritasSoftware.ps1   # Core policy enforcement, winget update, and Windows Update script
 │   └── test_winrm_connection.py   # Linux-side WinRM connectivity and privilege check
 └── setup/
@@ -86,6 +87,46 @@ Execution switches:
 Audit logs are continuously recorded to:
 ```
 C:\Caritas\Logs\Hardening.log
+```
+
+---
+
+## Shared User Profile Reset & Clean Slate Automation
+
+The script [`scripts/Reset-CaritasUserProfile.ps1`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/scripts/Reset-CaritasUserProfile.ps1) manages the shared standard account `User` across all editions of Windows 11 (Home, Pro, Enterprise). It guarantees a clean slate whenever the human user changes and enforces decoupling from cloud identities.
+
+### Core Architecture & Capabilities
+- **WMI/CIM Profile Disposal (`Win32_UserProfile.Delete()`):** Terminates active or disconnected user sessions, halts background tasks, and unregisters the profile from `ProfileList`. The next logon clones a fresh template from `C:\Users\Default`, obliterating all downloads, browser cookies, cache, and saved credentials.
+- **One-Click Public Desktop Shortcut:** Deploys a shortcut (`Sitzung zurücksetzen.lnk`) to `C:\Users\Public\Desktop`. Standard users or facilitators can double-click this shortcut without administrative privileges to trigger a complete session wipe.
+- **Elevated Task Delegation:** Uses Windows Task Scheduler (`Caritas-ResetUserSession`) running under `NT AUTHORITY\SYSTEM` with highest privileges to perform the profile reset.
+- **Boot-Time Automated Clean Slate:** Optionally configures `Caritas-ResetUserOnBoot` to purge and reset the profile on every system startup, ensuring no lingering session data persists overnight.
+- **OneDrive & Microsoft Account Isolation:** Enforces machine-wide policies:
+  - `NoConnectedUser = 3`: Blocks users from adding or linking Microsoft Accounts to their Windows profile.
+  - `DisableFileSyncNGSC = 1` and `DisableFileSync = 1`: Disables OneDrive storage, prevents background synchronization, and suppresses OneDrive autostart.
+  - `DisableSettingSync = 2`: Prevents cloud synchronization of Windows settings, themes, and passwords.
+- **Account Privilege Enforcement:** Ensures `User` exists in the local SAM database with a non-expiring password, assigned strictly to the standard `Users` group (SID `S-1-5-32-545`) with zero administrative rights.
+
+### Running Locally on the Laptop (as Administrator)
+
+To provision the scheduled tasks, deploy the desktop shortcut, and apply isolation policies:
+
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process -Force
+C:\Caritas\Scripts\Reset-CaritasUserProfile.ps1 -InstallAll
+```
+
+Execution switches:
+- `-InstallAll`: Convenience switch registering the SYSTEM scheduled task, the public desktop shortcut, and the boot-time task.
+- `-RegisterTask`: Registers only the on-demand scheduled task `Caritas-ResetUserSession`.
+- `-CreateDesktopShortcut`: Creates only the public desktop shortcut `Sitzung zurücksetzen.lnk`.
+- `-RegisterBootTask`: Registers only the startup task `Caritas-ResetUserOnBoot`.
+- `-TargetUsername <name>`: Specifies the target account (defaults to `User`).
+- `-RebootAfterReset`: Restarts the operating system automatically after profile deletion.
+- `-DryRun`: Previews actions without terminating sessions, deleting directories, or altering policies.
+
+Audit logs are continuously written to:
+```
+C:\Caritas\Logs\UserReset.log
 ```
 
 ---
