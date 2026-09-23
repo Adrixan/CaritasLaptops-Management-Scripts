@@ -1,0 +1,38 @@
+name: Release Packaging
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+jobs:
+  package-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Create Release Distribution Bundle
+        run: |
+          mkdir -p build/Caritas/Scripts build/Caritas/Setup build/Caritas/Config
+          cp scripts/*.ps1 build/Caritas/Scripts/
+          cp setup/*.ps1 build/Caritas/Setup/
+          cp setup/*.cmd build/Caritas/Setup/ 2>/dev/null || true
+          cp version.json build/Caritas/Config/
+          cp README.md software-inventory*.md build/Caritas/
+          cd build && zip -r ../CaritasScripts.zip . && cd ..
+          sha256sum CaritasScripts.zip > CaritasScripts.zip.sha256
+          echo "Generated SHA256 checksum:"
+          cat CaritasScripts.zip.sha256
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            CaritasScripts.zip
+            CaritasScripts.zip.sha256
+          generate_release_notes: true

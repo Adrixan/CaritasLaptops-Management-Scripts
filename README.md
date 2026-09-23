@@ -5,21 +5,60 @@ Everything necessary to keep the freely available Caritas laptops up to speed.
 ## Repository Structure
 
 ```
-├── README.md
-├── software-inventory.md          # User retention policy checklist ([x] keep / [ ] remove)
-├── software-inventory-current.md  # Post-synchronization verified inventory
+├── .github/
+│   └── workflows/
+│       └── release.yml                # Automated packaging and GitHub Release creation
+├── README.md                          # Comprehensive architecture and operational guide
+├── software-inventory.md              # User retention policy checklist ([x] keep / [ ] remove)
+├── software-inventory-current.md      # Post-synchronization verified inventory
+├── version.json                       # Suite version metadata for self-updater
 ├── scripts/
-│   ├── Configure-CaritasDefaults.ps1 # Machine-wide default app associations and ad-blocker policies
-│   ├── Configure-CaritasHardening.ps1 # Standalone system hardening and power baseline policy
-│   ├── Configure-CaritasMaintenanceAndPrivacy.ps1 # Credential defense, USB lockdown, and maintenance
-│   ├── generate_inventory.py      # Queries WSMan registry and AppX manifests to rebuild inventory
-│   ├── Reset-CaritasUserProfile.ps1 # Automated clean slate profile purge and isolation enforcement
-│   ├── Sync-CaritasSoftware.ps1   # Core policy enforcement, winget update, and Windows Update script
-│   └── test_winrm_connection.py   # Linux-side WinRM connectivity and privilege check
+│   ├── Caritas-ControlCenter-GUI.ps1  # Native WPF Graphical User Interface console
+│   ├── Caritas-ControlCenter.ps1      # Interactive Terminal User Interface (TUI)
+│   ├── Configure-CaritasDefaults.ps1  # Machine-wide default app associations and ad-blockers
+│   ├── Configure-CaritasHardening.ps1 # Standalone system hardening and continuous power
+│   ├── Configure-CaritasMaintenanceAndPrivacy.ps1 # Credential defense, USB lockdown, and hygiene
+│   ├── generate_inventory.py          # Queries WSMan registry and AppX manifests
+│   ├── Reset-CaritasUserProfile.ps1   # Automated clean slate profile purge and isolation
+│   ├── Sync-CaritasSoftware.ps1       # Policy enforcement, winget update, and Windows Update
+│   └── test_winrm_connection.py       # Linux-side WinRM connectivity and privilege check
 └── setup/
-    ├── Enable-WinRMDev.ps1        # Enables WinRM and configures development access on target laptop
-    └── Disable-WinRMDev.ps1       # Restores security baselines and disables WinRM when done
+    ├── Caritas-Verwaltung.cmd         # Zero-friction elevated desktop launcher (GUI default)
+    ├── Caritas-Verwaltung-TUI.cmd     # Zero-friction elevated desktop launcher (Terminal mode)
+    ├── Install-CaritasEnvironment.ps1 # 1-click environment installer and shortcut provisioner
+    ├── Enable-WinRMDev.ps1            # Enables WinRM and development access
+    └── Disable-WinRMDev.ps1           # Restores baselines and disables WinRM when done
 ```
+
+## Caritas Laptop Control Center (GUI & TUI)
+
+Administrative tasks on Caritas laptops can be performed through two unified interfaces designed for non-technical administrative users. Both interfaces require no manual command execution, no PowerShell knowledge, and no manual changes to PowerShell execution policies.
+
+### 1. Graphical User Interface (GUI)
+The graphical console [`scripts/Caritas-ControlCenter-GUI.ps1`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/scripts/Caritas-ControlCenter-GUI.ps1) is built with native Windows Presentation Framework (WPF) and requires zero external runtimes. Features include:
+- Visual Action Cards: Organized cards for 1-Click Erst-Einrichtung, system maintenance, configuration, and patron account reset.
+- Asynchronous Execution: Background runspaces execute operations without freezing the window.
+- Real-time Output Streaming: Live script output streams into a built-in terminal box with auto-scroll.
+- Process Cancellation: Active operations can be halted immediately using the cancellation button.
+- Fast Self-Update: Automatically queries GitHub upon loading (with a 2.5 second timeout) and displays an update button when a newer version exists.
+- Bidirectional TUI Handoff: A dedicated utility button opens the terminal interface at any time.
+
+### 2. Terminal User Interface (TUI)
+The terminal console [`scripts/Caritas-ControlCenter.ps1`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/scripts/Caritas-ControlCenter.ps1) provides an interactive keyboard-driven menu:
+- Single-key navigation for all maintenance tasks.
+- 1-Click Master Onboarding routine.
+- Audit log reader displaying the last lines of all operational logs in `C:\Caritas\Logs`.
+- Interactive update checker and downloader.
+- Seamless launch of the graphical interface via option `[8]`.
+
+### Zero-Friction Desktop Launchers
+On administrative desktops, two shortcuts are deployed:
+- `Caritas Verwaltung.lnk`: Launches `setup\Caritas-Verwaltung.cmd`, automatically requesting User Account Control (UAC) elevation and opening the Graphical Control Center in Single-Thread Apartment (STA) mode.
+- `Caritas Verwaltung (Terminal).lnk`: Launches `setup\Caritas-Verwaltung-TUI.cmd`, opening the Terminal Control Center directly in an elevated console window.
+
+Both launchers run with `-ExecutionPolicy Bypass` scoped strictly to the process, ensuring policies remain locked down globally.
+
+---
 
 ## Software Synchronization & Update Automation
 
@@ -242,3 +281,43 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process -Force
 # Or permanently delete the local CaritasAdmin account:
 .\setup\Disable-WinRMDev.ps1 -DeleteAdminAccount
 ```
+
+---
+
+## Automated GitHub Release Pipeline & Distribution
+
+The repository includes a GitHub Actions workflow in [`.github/workflows/release.yml`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/.github/workflows/release.yml) to package releases automatically whenever a version tag is pushed.
+
+### Release Workflow
+- **Tag Trigger:** Creating and pushing a tag formatted as `v*.*.*` (for example, `v1.0.0`) triggers the release pipeline.
+- **Distribution Bundle:** The pipeline builds `CaritasScripts.zip`, containing the complete script suite, setup launchers, version metadata, and configuration XML files structured ready for deployment to `C:\Caritas\`.
+- **Integrity Verification:** A SHA256 cryptographic checksum file (`CaritasScripts.zip.sha256`) is computed and attached to each release.
+- **Release Publication:** GitHub Releases automatically publishes the assets and generates release notes.
+
+To publish a release:
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+---
+
+## Initial Setup on Newly Donated Laptops
+
+To initialize a newly donated or freshly installed Windows 11 laptop:
+
+### Option A: From Cloned Git Repository
+- Clone the repository or extract the release archive onto the target machine.
+- In File Explorer, navigate to the `setup` folder and right-click [`setup\Caritas-Verwaltung.cmd`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/setup/Caritas-Verwaltung.cmd), selecting **Run as administrator**.
+- Alternatively, run [`setup\Install-CaritasEnvironment.ps1`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/setup/Install-CaritasEnvironment.ps1) from an elevated PowerShell prompt to initialize `C:\Caritas\` and create desktop shortcuts across all administrator profiles.
+
+### Option B: 1-Click Master Onboarding in Control Center
+- Launch **Caritas Verwaltung** from the desktop shortcut.
+- Click the primary action button **Erst-Einrichtung (All-in-One)**.
+- The automated sequence performs all five onboarding phases:
+  - Phase 1: Software retention enforcement and package installation via `winget`.
+  - Phase 2: Complete Windows Update, driver synchronization, and firmware updates.
+  - Phase 3: Defensive hardening, continuous power configuration, and telemetry suppression.
+  - Phase 4: Default application catalog registration (Firefox, VLC, Office) and uBlock Origin deployment.
+  - Phase 5: Credential defense, USB execution denial, storage maintenance, and `User` account reset task registration.
+
