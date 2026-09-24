@@ -1,4 +1,4 @@
-#Requires -RunAsAdministrator
+﻿#Requires -RunAsAdministrator
 <#
 .SYNOPSIS
     Standalone system hardening and power baseline configuration script.
@@ -37,6 +37,10 @@ param(
 
 $ErrorActionPreference = "Continue"
 
+# Enforce UTF-8 console and pipeline encoding
+try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
+$OutputEncoding = [System.Text.Encoding]::UTF8
+
 # 1. Setup Logging Infrastructure (Dynamically Resolved)
 $scriptDir = $PSScriptRoot
 if (-not $scriptDir) { $scriptDir = (Get-Item -Path ".").FullName }
@@ -58,7 +62,7 @@ function Write-HardeningLog {
     $logLine = "[$timestamp] [$Level] $Message"
     Write-Host $logLine -ForegroundColor $Color
     try {
-        Add-Content -Path $logFile -Value $logLine -ErrorAction SilentlyContinue
+        Add-Content -Path $logFile -Value $logLine -Encoding UTF8 -ErrorAction SilentlyContinue
     } catch {}
 }
 

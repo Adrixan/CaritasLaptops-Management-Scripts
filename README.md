@@ -70,7 +70,8 @@ Deploying and maintaining a Caritas laptop requires zero command-line interactio
 ### 1. Graphical User Interface (GUI)
 The graphical console [`scripts/Caritas-ControlCenter-GUI.ps1`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/scripts/Caritas-ControlCenter-GUI.ps1) is constructed using native Windows Presentation Framework (WPF) with XAML, requiring no third-party frameworks.
 - Asynchronous Background Execution: Tasks run in decoupled PowerShell runspaces using thread-safe queues. The application interface remains fully responsive during heavy disk and network activity.
-- Live Real-Time Console: Unified stdout and stderr streams render line-by-line into an auto-scrolling monospace terminal viewer.
+- Live Real-Time Console: Unified stdout and stderr streams render line-by-line into an auto-scrolling monospace terminal viewer with UTF-8 stream decoding.
+- Character Encoding & Localization: All PowerShell modules are standardized on UTF-8 with Byte Order Mark (BOM). Both parent and asynchronous child processes explicitly configure `[Console]::OutputEncoding` and `$OutputEncoding` to UTF-8, ensuring error-free rendering of German umlauts (`ä, ö, ü, Ä, Ö, Ü, ß`) and Unicode interface glyphs in WPF controls, message boxes, and live logs.
 - Immediate Task Interruption: An `[✕ Abbrechen]` button terminates active background runspaces cleanly if an operation was initiated by mistake.
 - Action Cards:
   - **Erst-Einrichtung (All-in-One):** Complete automated onboarding for freshly donated laptops.
@@ -149,7 +150,7 @@ The repository includes a continuous integration workflow in [`.github/workflows
 
 To publish a new version:
 ```bash
-git tag v1.0.3
-git push origin v1.0.3
+git tag v1.0.4
+git push origin v1.0.4
 ```
 Laptops running the Control Center will detect the new version within seconds and prompt administrators to update in place.

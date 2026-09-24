@@ -9,14 +9,29 @@
 - Subsequent refinement: Explicit rejection of deploying files to direct subfolders of `C:\` (such as `C:\Caritas`). The system was refactored so that deployment is completely portable and location-independent (e.g. directly on the administrative user's desktop `Desktop\CaritasScripts`), with root launchers (`Caritas-Verwaltung.cmd`, `Caritas-Verwaltung-TUI.cmd`), dynamic path resolution via `$PSScriptRoot`, and documentation in `README.md` updated to describe downloading directly from GitHub Releases without referencing WinRM development tooling.
 - Profile reset refinement: Ensure profile reset of standard account `User` is strictly triggered either by `User` clicking a desktop shortcut or by the administrative user triggering the reset. Do not wipe the profile on each logout, shutdown, or system startup.
 - Administrative login, Firefox onboarding, and desktop shortcut refinement:
-  - When logging into Windows as an administrator, Windows presented initial OOBE setup questions (location, diagnostic data, tailored experiences, advertising ID, inking/typing, find my device). These questions must never appear and must default to strict privacy settings.
-  - Firefox opened with an onboarding configuration dialogue (`about:welcome`) and autostarted on login. Firefox must be pre-configured, ready to use immediately without wizard dialogues, and must never start automatically on logon.
-  - The desktop shortcut "Caritas Verwaltung" failed to launch due to cmd/powershell argument quoting breakdown and path misalignment with the disabled `carit` account.
+  - Suppressed OOBE privacy setup questions (`DisablePrivacyExperience = 1`) and configured strict privacy defaults across machine and user hives.
+  - Pre-configured Firefox with locked enterprise policies to eliminate `about:welcome` and default browser checks, and scrubbed `Run` registry keys to prevent autostart on logon.
+  - Repaired desktop shortcut execution by refactoring batch invocation to pass PowerShell array arguments `@('-Sta', '-NoProfile', ...)`, targeting active administrator desktops.
+- Character Encoding & Umlaut Resolution:
+  - User reported character encoding issues regarding German umlauts inside the GUI of Caritas Verwaltung.
+  - Root cause was Windows PowerShell 5.1 interpreting UTF-8 `.ps1` files lacking a Byte Order Mark (BOM) as ANSI (Windows-1252), causing all multibyte German umlauts (`ä, ö, ü, Ä, Ö, Ü, ß`) and Unicode symbols (`⚡, ★, •, ▶, ✕`) to be read as mojibake (`Ã¤, Ã¶, Ã¼, â¶, â`).
+  - Child asynchronous runspaces also defaulted to system OEM encoding rather than UTF-8 when streaming process output.
 
 ## 2. Active Intent & Delivered Artifacts
 All modules, launchers, and deployment artifacts are authored, validated, and verified on the target hardware (`CARITAS-X1-1`, Windows 11 Pro 64-bit):
 
-1. **OOBE Privacy Setup Suppression & Privacy Defaults:**
+1. **UTF-8 with Byte Order Mark (BOM) Standardization:**
+   - Files: All 10 PowerShell scripts in `scripts/` and `setup/` prepended with standard 3-byte UTF-8 BOM (`0xEF, 0xBB, 0xBF`).
+   - Guarantees Windows PowerShell 5.1 (`powershell.exe`) and PowerShell 7+ reliably recognize UTF-8 encoding across all Windows language editions.
+   - Eliminates all mojibake in XAML string parsing, WPF Window construction, button labels, cards, text blocks, tooltips, and MessageBox dialogue boxes.
+
+2. **Console & Pipeline UTF-8 Stream Synchronization:**
+   - Script: `scripts/Caritas-ControlCenter-GUI.ps1`, `scripts/Caritas-ControlCenter.ps1`, `setup/Install-CaritasEnvironment.ps1`, and all module scripts.
+   - Configured `[Console]::OutputEncoding = [System.Text.Encoding]::UTF8` and `$OutputEncoding = [System.Text.Encoding]::UTF8` at script initialization.
+   - Asynchronous Engine: Configured `$psi.StandardOutputEncoding = [System.Text.Encoding]::UTF8` in `Start-AsyncScript`, and injected UTF-8 console output encoding into child PowerShell process invocations to guarantee live console output stream decoding without corruption.
+   - Log Writing: Added `-Encoding UTF8` to all `Add-Content` calls in logging functions (`Write-CCLog`, `Write-SyncLog`, `Write-HardeningLog`, `Write-DefaultsLog`, `Write-UserResetLog`, `Write-MaintLog`).
+
+3. **OOBE Privacy Setup Suppression & Privacy Defaults:**
    - Script: `scripts/Configure-CaritasHardening.ps1`
    - OOBE Suppression: Configured `DisablePrivacyExperience = 1` in `HKLM:\SOFTWARE\Policies\Microsoft\Windows\OOBE`, `HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System`, and `HKLM:\SOFTWARE\Policies\Microsoft\Windows\System`.
    - Animation & SCOOBE Bypass: Set `EnableFirstLogonAnimation = 0`, `ScoobeSystemSettingEnabled = 0`, `ShowWindowsProvider = 0`, and `RestartApps = 0` (preventing automatic reopening of apps on sign-in).
@@ -24,34 +39,32 @@ All modules, launchers, and deployment artifacts are authored, validated, and ve
    - Find My Device & Speech: Set `AllowFindMyDevice = 0` and `AllowSpeechModelUpdate = 0`.
    - Hive Stamping: Automatically stamped privacy acceptance flags and disabled Content Delivery Manager suggestions across `.DEFAULT` and all active user registry hives (`S-1-5-21*`).
 
-2. **Firefox Enterprise Pre-Configuration & Autostart Suppression:**
+4. **Firefox Enterprise Pre-Configuration & Autostart Suppression:**
    - Scripts: `scripts/Configure-CaritasDefaults.ps1`, `scripts/Configure-CaritasMaintenanceAndPrivacy.ps1`
    - Enterprise Policies: Deployed `C:\Program Files\Mozilla Firefox\distribution\policies.json` and mirrored HKLM registry policies locking `browser.aboutwelcome.enabled: false`, `trailhead.firstrun.didSeeAboutWelcome: true`, `doh-rollout.doneFirstRun: true`, `OverrideFirstRunPage: ""`, `OverridePostUpdatePage: ""`, `DontCheckDefaultBrowser: 1`, `DisableProfileImport: 1`, `DisablePocket: 1`, and `DisableTelemetry: 1`.
    - Autostart Lockdown: Locked `browser.startup.windowsLaunchOnLogin.enabled: false`. Scrubbed Firefox autostart entries from `Run` keys across HKLM, WOW6432Node, HKCU, and all mounted user hives (`S-1-5-21*`). Disabled Firefox background maintenance scheduled tasks.
 
-3. **Desktop Shortcut Launcher & Quoting Fix:**
+5. **Desktop Shortcut Launcher & Quoting Fix:**
    - Files: `Caritas-Verwaltung.cmd`, `Caritas-Verwaltung-TUI.cmd` (at root and in `setup/`)
    - Fixed argument escaping by passing a native PowerShell array `@('-Sta', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', '%TARGET_SCRIPT%')`, preventing argument truncation or empty-string parsing.
    - Updated provisioner `setup/Install-CaritasEnvironment.ps1` to detect active local administrator profiles dynamically and deploy shortcuts to `C:\Users\CaritasAdmin\Desktop`.
 
-4. **PowerShell 5.1 Registry Parameter Compatibility:**
-   - Standardized on `New-ItemProperty -PropertyType ... -Force` across all modules, replacing invalid `Set-ItemProperty -Type` calls that triggered parameter binding errors on native PowerShell 5.1.
-
-5. **Strictly On-Demand Patron Profile Reset:**
+6. **Strictly On-Demand Patron Profile Reset:**
    - Script: `scripts/Reset-CaritasUserProfile.ps1`
    - Unprivileged Execution Mechanism: Elevated Scheduled Task `Caritas-ResetUserSession` under `NT AUTHORITY\SYSTEM` with security descriptor `(A;;0x12019f;;;BU)` and file ACL `icacls *S-1-5-32-545:(RX)` on the task definition.
    - Public Desktop Shortcut: `C:\Users\Public\Desktop\Sitzung zurücksetzen.lnk` pointing to `schtasks.exe /run /tn "Caritas-ResetUserSession"`.
    - Profiles persist across routine reboots, logouts, and shutdowns.
 
-6. **Native Control Centers (GUI & TUI):**
+7. **Native Control Centers (GUI & TUI):**
    - GUI: `scripts/Caritas-ControlCenter-GUI.ps1` (WPF/XAML, runspace concurrency, Bioluminescent Night palette, live terminal viewer).
    - TUI: `scripts/Caritas-ControlCenter.ps1` (single-key interaction, audit log viewer, unattended switch).
-   - Version metadata bumped to `1.0.3` in `version.json`.
+   - Version metadata bumped to `1.0.4` in `version.json`.
 
 ## 3. Remote Verification & Hardware Testing
 - Target Host: `10.106.81.35` (`CARITAS-X1-1`), Windows 11 Pro 64-bit Build 26100.
 - Active Administrator: `CaritasAdmin`.
 - Suite Location: `C:\Users\CaritasAdmin\Desktop\CaritasScripts\`.
+- UTF-8 BOM Verification: Confirmed remote PowerShell 5.1 AST parser and XML parser successfully decode all German umlauts (`ä, ö, ü, Ä, Ö, Ü, ß`) and Unicode symbols (`⚡, ★, •, ▶, ✕`) without mojibake.
 - Shortcuts Verified on `CaritasAdmin` Desktop:
   - `Caritas Verwaltung.lnk` -> `C:\Users\CaritasAdmin\Desktop\CaritasScripts\Caritas-Verwaltung.cmd` (Verified `Exists: True`).
   - `Caritas Verwaltung (Terminal).lnk` -> `C:\Users\CaritasAdmin\Desktop\CaritasScripts\Caritas-Verwaltung-TUI.cmd` (Verified `Exists: True`).
@@ -70,4 +83,4 @@ All modules, launchers, and deployment artifacts are authored, validated, and ve
 - Network Management: WinRM port 5985 left active on `CARITAS-X1-1` per user instructions.
 
 ## 4. Pending Decisions & Next Steps
-- Commit repository changes, tag `v1.0.3`, and push to GitHub repository `Adrixan/CaritasLaptops-Management-Scripts` to trigger the automated release workflow.
+- Commit repository changes, tag `v1.0.4`, and push to GitHub repository `Adrixan/CaritasLaptops-Management-Scripts` to trigger the automated release workflow.

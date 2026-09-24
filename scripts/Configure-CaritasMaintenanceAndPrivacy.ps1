@@ -1,4 +1,4 @@
-#Requires -RunAsAdministrator
+﻿#Requires -RunAsAdministrator
 <#
 .SYNOPSIS
     Configures browser credential defense, removable media lockdown, desktop hygiene, and storage maintenance.
@@ -42,6 +42,10 @@ param(
 
 $ErrorActionPreference = "Continue"
 
+# Enforce UTF-8 console and pipeline encoding
+try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
+$OutputEncoding = [System.Text.Encoding]::UTF8
+
 # 1. Logging Infrastructure (Dynamically Resolved)
 $scriptDir = $PSScriptRoot
 if (-not $scriptDir) { $scriptDir = (Get-Item -Path ".").FullName }
@@ -63,7 +67,7 @@ function Write-MaintLog {
     $logLine = "[$timestamp] [$Level] $Message"
     Write-Host $logLine -ForegroundColor $Color
     try {
-        Add-Content -Path $logFile -Value $logLine -ErrorAction SilentlyContinue
+        Add-Content -Path $logFile -Value $logLine -Encoding UTF8 -ErrorAction SilentlyContinue
     } catch {}
 }
 
