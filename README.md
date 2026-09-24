@@ -114,9 +114,9 @@ The script [`scripts/Configure-CaritasHardening.ps1`](file:///home/Adrixan/code/
 ### 3. Shared Patron Profile Reset & Clean Slate
 The script [`scripts/Reset-CaritasUserProfile.ps1`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/scripts/Reset-CaritasUserProfile.ps1) isolates and manages the shared patron account `User`:
 - CIM Profile Disposal: Calls `Win32_UserProfile.Delete()` to terminate active patron sessions, unregister the profile from registry, and purge the user directory. The subsequent login clones a fresh template from `Default`.
-- Unprivileged Patron Trigger: Deploys a shortcut (`Sitzung zurücksetzen.lnk`) to `C:\Users\Public\Desktop` allowing patrons or volunteers to initiate an immediate profile wipe.
-- SYSTEM Task Delegation: Executes via an elevated Windows Scheduled Task (`Caritas-ResetUserSession`) running under `NT AUTHORITY\SYSTEM`.
-- Boot-Time Clean Slate: Registers `Caritas-ResetUserOnBoot` to automatically purge the profile on every system startup.
+- Unprivileged Patron Trigger: Deploys a shortcut (`Sitzung zurücksetzen.lnk`) to `C:\Users\Public\Desktop` allowing patrons or volunteers to initiate an immediate profile wipe without administrative credentials.
+- SYSTEM Task Delegation: Executes via an elevated Windows Scheduled Task (`Caritas-ResetUserSession`) running under `NT AUTHORITY\SYSTEM` with explicit execute permissions granted to `Builtin\Users`.
+- Strict On-Demand Execution: Resets are exclusively triggered on demand, either by clicking the desktop shortcut or through the administrator Control Center. Profiles are intentionally never purged automatically on reboot, shutdown, or logout to safeguard patron work across routine restarts.
 - Cloud Identity Lockdown: Enforces `NoConnectedUser = 3` (blocks Microsoft Account linking), `DisableFileSyncNGSC = 1` (disables OneDrive storage and background sync), and `DisableSettingSync = 2` (prevents settings synchronization).
 - Logging: Recorded to `logs\UserReset.log`.
 
