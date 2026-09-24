@@ -16,6 +16,11 @@
   - User reported character encoding issues regarding German umlauts inside the GUI of Caritas Verwaltung.
   - Root cause was Windows PowerShell 5.1 interpreting UTF-8 `.ps1` files lacking a Byte Order Mark (BOM) as ANSI (Windows-1252), causing all multibyte German umlauts (`ä, ö, ü, Ä, Ö, Ü, ß`) and Unicode symbols (`⚡, ★, •, ▶, ✕`) to be read as mojibake (`Ã¤, Ã¶, Ã¼, â¶, â`).
   - Child asynchronous runspaces also defaulted to system OEM encoding rather than UTF-8 when streaming process output.
+- GUI Asynchronous Process Runner Deadlock Resolution:
+  - User reported initiating "Sitzung von 'User' zurücksetzen" at 10:55:53 in the GUI, with the task still showing as running after several minutes.
+  - Remote investigation on hardware CARITAS-X1-1 revealed that Reset-CaritasUserProfile.ps1 completed successfully in 5 seconds (10:55:54 to 10:55:59).
+  - Root cause identified: The GUI runner in scripts/Caritas-ControlCenter-GUI.ps1 used synchronous stream reading while (-not $proc.StandardOutput.EndOfStream) { $proc.StandardOutput.ReadLine() }. In interactive desktop sessions, child processes or console subsystems inherit the stdout pipe's write handle. In .NET, EndOfStream blocks indefinitely until every write handle across the OS is closed, even if the primary process has already terminated.
+  - Resolution implemented: Replaced synchronous stream reading with asynchronous event-driven reading (Register-ObjectEvent on OutputDataReceived with BeginOutputReadLine()) paired with timed process polling ($proc.WaitForExit(250)). This eliminates pipe handle deadlocks, guarantees immediate task completion reporting, and cleanly unregisters events upon exit.
 
 ## 2. Active Intent & Delivered Artifacts
 All modules, launchers, and deployment artifacts are authored, validated, and verified on the target hardware (`CARITAS-X1-1`, Windows 11 Pro 64-bit):
@@ -58,12 +63,15 @@ All modules, launchers, and deployment artifacts are authored, validated, and ve
 7. **Native Control Centers (GUI & TUI):**
    - GUI: `scripts/Caritas-ControlCenter-GUI.ps1` (WPF/XAML, runspace concurrency, Bioluminescent Night palette, live terminal viewer).
    - TUI: `scripts/Caritas-ControlCenter.ps1` (single-key interaction, audit log viewer, unattended switch).
-   - Version metadata bumped to `1.0.4` in `version.json`.
+   - Version metadata bumped to `1.0.5` in `version.json`.
 
 ## 3. Remote Verification & Hardware Testing
 - Target Host: `10.106.81.35` (`CARITAS-X1-1`), Windows 11 Pro 64-bit Build 26100.
 - Active Administrator: `CaritasAdmin`.
 - Suite Location: `C:\Users\CaritasAdmin\Desktop\CaritasScripts\`.
+- Process Termination: Terminated hanging PID 4396 and background PID 5372 on target laptop.
+- Fresh Deployment: Deployed updated v1.0.5 suite to `C:\Users\CaritasAdmin\Desktop\CaritasScripts\`.
+- Asynchronous Engine Hardware Test: Verified execution of patron reset script via the new event-driven runner on `CARITAS-X1-1`. All 14 lines received in real time, process completed in 5.43 seconds, exit code 0, and status set to Done immediately without hanging.
 - UTF-8 BOM Verification: Confirmed remote PowerShell 5.1 AST parser and XML parser successfully decode all German umlauts (`ä, ö, ü, Ä, Ö, Ü, ß`) and Unicode symbols (`⚡, ★, •, ▶, ✕`) without mojibake.
 - Shortcuts Verified on `CaritasAdmin` Desktop:
   - `Caritas Verwaltung.lnk` -> `C:\Users\CaritasAdmin\Desktop\CaritasScripts\Caritas-Verwaltung.cmd` (Verified `Exists: True`).
@@ -83,4 +91,4 @@ All modules, launchers, and deployment artifacts are authored, validated, and ve
 - Network Management: WinRM port 5985 left active on `CARITAS-X1-1` per user instructions.
 
 ## 4. Pending Decisions & Next Steps
-- Commit repository changes, tag `v1.0.4`, and push to GitHub repository `Adrixan/CaritasLaptops-Management-Scripts` to trigger the automated release workflow.
+- Commit repository changes, tag `v1.0.5`, and push to GitHub repository `Adrixan/CaritasLaptops-Management-Scripts` to trigger the automated release workflow.
