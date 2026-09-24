@@ -16,16 +16,15 @@
     Registers an elevated Scheduled Task (running as NT AUTHORITY\SYSTEM) allowing unprivileged users or shortcuts to trigger a reset.
 .PARAMETER CreateDesktopShortcut
     Creates an unprivileged desktop shortcut on C:\Users\Public\Desktop pointing to the scheduled task.
-.PARAMETER RegisterBootTask
-    Registers a scheduled task to automatically purge and reset the target profile on every system startup.
 .PARAMETER InstallAll
-    Convenience switch: registers the scheduled task, desktop shortcut, and boot-time clean slate task.
+    Convenience switch: registers the scheduled task with Builtin\Users execute rights and creates the public desktop shortcut.
 .PARAMETER RebootAfterReset
     Initiates a clean operating system restart after profile deletion.
 .PARAMETER DryRun
     Simulates the reset procedure and logs proposed actions without terminating sessions or deleting files.
 .NOTES
     Compatible with all Windows 11 editions (Home, Pro, Enterprise, Education).
+    Resets are strictly on-demand (patron desktop shortcut or administrator trigger).
     Logs operations to logs\UserReset.log.
 #>
 [CmdletBinding()]
@@ -33,7 +32,6 @@ param(
     [string]$TargetUsername = "User",
     [switch]$RegisterTask,
     [switch]$CreateDesktopShortcut,
-    [switch]$RegisterBootTask,
     [switch]$InstallAll,
     [switch]$RebootAfterReset,
     [switch]$DryRun
@@ -230,7 +228,7 @@ if (-not $DryRun) {
     Write-ResetLog "  [DryRun] Would verify local user '$TargetUsername' and enforce membership in Users group." "INFO" ([ConsoleColor]::Gray)
 }
 
-# 7. Provisioning Facilities (Scheduled Task, Desktop Shortcut, Boot Task)
+# 7. Provisioning Facilities (Scheduled Task, Desktop Shortcut, Legacy Cleanup)
 $scriptPath = if ($PSCommandPath) { $PSCommandPath } else { Join-Path $scriptDir "Reset-CaritasUserProfile.ps1" }
 
 if ($RegisterTask -or $InstallAll) {
@@ -243,8 +241,28 @@ if ($RegisterTask -or $InstallAll) {
         $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
         Register-ScheduledTask -TaskName $taskName -Action $action -Principal $principal -Settings $settings -Force | Out-Null
         Write-ResetLog "  [SUCCESS] Scheduled Task '$taskName' registered under NT AUTHORITY\SYSTEM." "ACTION" ([ConsoleColor]::Green)
+
+        # Grant Builtin\Users execute rights so standard patrons can trigger the reset via shortcut
+        try {
+            $scheduler = New-Object -ComObject "Schedule.Service"
+            $scheduler.Connect()
+            $folder = $scheduler.GetFolder("\")
+            $taskObj = $folder.GetTask($taskName)
+            $currentSddl = $taskObj.GetSecurityDescriptor(4)
+            if ($currentSddl -notmatch ";;;BU\)" -and $currentSddl -notmatch "0x12019f;;;BU") {
+                $taskObj.SetSecurityDescriptor($currentSddl + "(A;;0x12019f;;;BU)", 0)
+                Write-ResetLog "  [SUCCESS] Granted Task Scheduler execute permissions to Builtin\Users." "ACTION" ([ConsoleColor]::Green)
+            }
+        } catch {
+            Write-ResetLog "  Notice: Task COM security descriptor update: $_" "WARN" ([ConsoleColor]::DarkGray)
+        }
+
+        $taskFilePath = "$env:SystemRoot\System32\Tasks\$taskName"
+        if (Test-Path $taskFilePath) {
+            & icacls.exe $taskFilePath /grant "*S-1-5-32-545:(RX)" /Q | Out-Null
+        }
     } else {
-        Write-ResetLog "  [DryRun] Would register Scheduled Task 'Caritas-ResetUserSession'." "INFO" ([ConsoleColor]::Gray)
+        Write-ResetLog "  [DryRun] Would register Scheduled Task 'Caritas-ResetUserSession' with unprivileged execute rights." "INFO" ([ConsoleColor]::Gray)
     }
 }
 
@@ -271,19 +289,13 @@ if ($CreateDesktopShortcut -or $InstallAll) {
     }
 }
 
-if ($RegisterBootTask -or $InstallAll) {
-    Write-ResetLog "Configuring Boot-Time Scheduled Task 'Caritas-ResetUserOnBoot'..." "INFO" ([ConsoleColor]::Yellow)
-    if (-not $DryRun) {
-        $bootTaskName = "Caritas-ResetUserOnBoot"
-        $action = New-ScheduledTaskAction -Execute "powershell.exe" `
-            -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`" -TargetUsername `"$TargetUsername`""
-        $trigger = New-ScheduledTaskTrigger -AtStartup
-        $principal = New-ScheduledTaskPrincipal -UserId "NT AUTHORITY\SYSTEM" -LogonType ServiceAccount -RunLevel Highest
-        $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
-        Register-ScheduledTask -TaskName $bootTaskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force | Out-Null
-        Write-ResetLog "  [SUCCESS] Boot Task '$bootTaskName' registered for system startup." "ACTION" ([ConsoleColor]::Green)
-    } else {
-        Write-ResetLog "  [DryRun] Would register Boot Task 'Caritas-ResetUserOnBoot'." "INFO" ([ConsoleColor]::Gray)
+# 8. Decommission Legacy Boot-Time Wipe Task (Enforce On-Demand Reset Only)
+if (-not $DryRun) {
+    $legacyBootTask = Get-ScheduledTask -TaskName "Caritas-ResetUserOnBoot" -ErrorAction SilentlyContinue
+    if ($legacyBootTask) {
+        Write-ResetLog "Decommissioning legacy boot-time reset task 'Caritas-ResetUserOnBoot'..." "ACTION" ([ConsoleColor]::Yellow)
+        Unregister-ScheduledTask -TaskName "Caritas-ResetUserOnBoot" -Confirm:$false -ErrorAction SilentlyContinue
+        Write-ResetLog "  [SUCCESS] Legacy boot-time task unregistered. Resets are strictly on-demand." "ACTION" ([ConsoleColor]::Green)
     }
 }
 

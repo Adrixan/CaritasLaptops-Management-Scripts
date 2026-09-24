@@ -72,7 +72,7 @@ $tuiLauncher = if (Test-Path "$baseDir\Caritas-Verwaltung-TUI.cmd") {
 $wsh = New-Object -ComObject WScript.Shell
 
 $adminProfiles = @()
-$userProfiles = Get-ChildItem -Path "C:\Users" -Directory | Where-Object { $_.Name -notin @("Default", "Default User", "All Users", "Public") }
+$userProfiles = Get-ChildItem -Path "C:\Users" -Directory | Where-Object { $_.Name -notin @("Default", "Default User", "All Users", "Public", "User") }
 foreach ($p in $userProfiles) {
     $desktopPath = Join-Path $p.FullName "Desktop"
     if (Test-Path $desktopPath) {
