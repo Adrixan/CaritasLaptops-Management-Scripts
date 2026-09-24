@@ -1,4 +1,4 @@
-#Requires -RunAsAdministrator
+﻿#Requires -RunAsAdministrator
 <#
 .SYNOPSIS
     Caritas Laptop Control Center - Graphical User Interface (GUI).
@@ -19,9 +19,13 @@
 [CmdletBinding()]
 param()
 
+# Enforce UTF-8 console and pipeline encoding
+try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
+$OutputEncoding = [System.Text.Encoding]::UTF8
+
 # 1. Enforce STA (Single-Thread Apartment) Mode
 if ([System.Threading.Thread]::CurrentThread.GetApartmentState() -ne [System.Threading.ApartmentState]::STA) {
-    Start-Process powershell.exe -ArgumentList "-Sta -NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`""
+    Start-Process powershell.exe -ArgumentList @('-Sta', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $PSCommandPath)
     exit
 }
 
@@ -29,7 +33,7 @@ if ([System.Threading.Thread]::CurrentThread.GetApartmentState() -ne [System.Thr
 $currentIdentity = [Security.Principal.WindowsIdentity]::GetCurrent()
 $currentPrincipal = New-Object Security.Principal.WindowsPrincipal($currentIdentity)
 if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Start-Process powershell.exe -Verb RunAs -ArgumentList "-Sta -NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`""
+    Start-Process powershell.exe -Verb RunAs -ArgumentList @('-Sta', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $PSCommandPath)
     exit
 }
 
@@ -64,7 +68,7 @@ function Write-CCLog {
     param([string]$Message, [string]$Level = "INFO")
     $ts = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
     $line = "[$ts] [$Level] $Message"
-    Add-Content -Path $logFile -Value $line -ErrorAction SilentlyContinue
+    Add-Content -Path $logFile -Value $line -Encoding UTF8 -ErrorAction SilentlyContinue
 }
 
 function Get-LocalVersion {
@@ -115,7 +119,8 @@ function Start-AsyncScript {
         param($sync, $sFile, $sArgs)
         $psi = New-Object System.Diagnostics.ProcessStartInfo
         $psi.FileName = "powershell.exe"
-        $psi.Arguments = "-NoProfile -ExecutionPolicy Bypass -Command `"& { & '$sFile' $sArgs } *>&1 | ForEach-Object { [Console]::WriteLine(`$_.ToString()) }`""
+        $psi.Arguments = "-NoProfile -ExecutionPolicy Bypass -Command `"try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}; `$OutputEncoding = [System.Text.Encoding]::UTF8; & { & '$sFile' $sArgs } *>&1 | ForEach-Object { [Console]::WriteLine(`$_.ToString()) }`""
+        $psi.StandardOutputEncoding = [System.Text.Encoding]::UTF8
         $psi.RedirectStandardOutput = $true
         $psi.UseShellExecute = $false
         $psi.CreateNoWindow = $true
@@ -778,7 +783,7 @@ $btnOpenLogs.Add_Click({
 $btnOpenTui.Add_Click({
     $tuiScript = "$scriptDir\Caritas-ControlCenter.ps1"
     if (Test-Path $tuiScript) {
-        Start-Process powershell.exe -ArgumentList "-NoExit -NoProfile -ExecutionPolicy Bypass -File `"$tuiScript`""
+        Start-Process powershell.exe -ArgumentList @('-NoExit', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $tuiScript)
     } else {
         [System.Windows.MessageBox]::Show("TUI-Skript ($tuiScript) nicht gefunden.", "Fehler", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Error) | Out-Null
     }

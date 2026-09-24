@@ -1,4 +1,4 @@
-#Requires -RunAsAdministrator
+﻿#Requires -RunAsAdministrator
 <#
 .SYNOPSIS
     Caritas Laptop Control Center - Interactive Terminal User Interface (TUI).
@@ -19,11 +19,15 @@ param(
     [switch]$RunOnboardingUnattended
 )
 
+# Enforce UTF-8 console and pipeline encoding
+try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
+$OutputEncoding = [System.Text.Encoding]::UTF8
+
 # 1. Enforce Elevated Privileges
 $currentIdentity = [Security.Principal.WindowsIdentity]::GetCurrent()
 $currentPrincipal = New-Object Security.Principal.WindowsPrincipal($currentIdentity)
 if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Start-Process powershell.exe -Verb RunAs -ArgumentList "-Sta -NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`""
+    Start-Process powershell.exe -Verb RunAs -ArgumentList @('-NoExit', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $PSCommandPath)
     exit
 }
 
@@ -60,7 +64,7 @@ function Write-CCLog {
     param([string]$Message, [string]$Level = "INFO")
     $ts = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
     $line = "[$ts] [$Level] $Message"
-    Add-Content -Path $logFile -Value $line -ErrorAction SilentlyContinue
+    Add-Content -Path $logFile -Value $line -Encoding UTF8 -ErrorAction SilentlyContinue
 }
 
 function Get-LocalVersion {
@@ -332,7 +336,7 @@ while ($true) {
             $guiScript = "$scriptDir\Caritas-ControlCenter-GUI.ps1"
             if (Test-Path $guiScript) {
                 Write-Host "Starte grafische Benutzeroberfläche..." -ForegroundColor Cyan
-                Start-Process powershell.exe -ArgumentList "-Sta -NoProfile -ExecutionPolicy Bypass -File `"$guiScript`""
+                Start-Process powershell.exe -ArgumentList @('-Sta', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $guiScript)
                 exit
             } else {
                 Write-Host "GUI-Skript ($guiScript) nicht gefunden." -ForegroundColor Red
