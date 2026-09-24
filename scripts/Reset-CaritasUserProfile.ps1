@@ -75,19 +75,19 @@ if (-not $DryRun) {
     # Block Microsoft Account linking
     $sysPolicy = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System"
     if (-not (Test-Path $sysPolicy)) { New-Item -Path $sysPolicy -Force | Out-Null }
-    Set-ItemProperty -Path $sysPolicy -Name "NoConnectedUser" -Value 3 -Type DWord -Force | Out-Null
+    New-ItemProperty -Path $sysPolicy -Name "NoConnectedUser" -Value 3 -PropertyType DWord -Force | Out-Null
 
     # Block OneDrive sync and file storage
     $odPolicy = "HKLM:\SOFTWARE\Policies\Microsoft\OneDrive"
     if (-not (Test-Path $odPolicy)) { New-Item -Path $odPolicy -Force | Out-Null }
-    Set-ItemProperty -Path $odPolicy -Name "DisableFileSyncNGSC" -Value 1 -Type DWord -Force | Out-Null
-    Set-ItemProperty -Path $odPolicy -Name "DisableFileSync" -Value 1 -Type DWord -Force | Out-Null
+    New-ItemProperty -Path $odPolicy -Name "DisableFileSyncNGSC" -Value 1 -PropertyType DWord -Force | Out-Null
+    New-ItemProperty -Path $odPolicy -Name "DisableFileSync" -Value 1 -PropertyType DWord -Force | Out-Null
 
     # Block Settings Sync
     $syncPolicy = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\SettingSync"
     if (-not (Test-Path $syncPolicy)) { New-Item -Path $syncPolicy -Force | Out-Null }
-    Set-ItemProperty -Path $syncPolicy -Name "DisableSettingSync" -Value 2 -Type DWord -Force | Out-Null
-    Set-ItemProperty -Path $syncPolicy -Name "DisableSettingSyncUserOverride" -Value 1 -Type DWord -Force | Out-Null
+    New-ItemProperty -Path $syncPolicy -Name "DisableSettingSync" -Value 2 -PropertyType DWord -Force | Out-Null
+    New-ItemProperty -Path $syncPolicy -Name "DisableSettingSyncUserOverride" -Value 1 -PropertyType DWord -Force | Out-Null
 
     # Suppress OneDrive per-user installer
     Remove-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" -Name "OneDriveSetup" -ErrorAction SilentlyContinue

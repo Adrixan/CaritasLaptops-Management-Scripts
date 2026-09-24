@@ -87,7 +87,7 @@ function Set-RegistryPolicy {
         if ($DryRun) {
             Write-MaintLog "  [DryRun] Would set $($Description): $($Path) -> $($Name) = $($Value) (Current: $($currentVal))" "INFO" ([ConsoleColor]::Gray)
         } else {
-            Set-ItemProperty -Path $Path -Name $Name -Value $Value -Type $PropertyType -Force | Out-Null
+            New-ItemProperty -Path $Path -Name $Name -Value $Value -PropertyType $PropertyType -Force | Out-Null
             Write-MaintLog "  [APPLIED] $($Description): $($Name) = $($Value)" "ACTION" ([ConsoleColor]::Yellow)
         }
     }
@@ -119,28 +119,22 @@ if (-not $SkipBrowserPrivacy) {
             selectedFilterLists = $filterLists
         }
 
-        # Unified Policy Payload ensuring uBlock Origin and Credential Defense
+        # Unified Policy Payload ensuring uBlock Origin, Credential Defense, and First-Run Bypass
         $ffPolicyPayload = @{
             policies = @{
-                ExtensionSettings = @{
-                    "uBlock0@raymondhill.net" = @{
-                        installation_mode = "force_installed"
-                        install_url = "https://addons.mozilla.org/firefox/downloads/latest/ublock-origin/latest.xpi"
-                    }
-                }
-                "3rdparty" = @{
-                    Extensions = @{
-                        "uBlock0@raymondhill.net" = @{
-                            adminSettings = $adminSettingsObj
-                        }
-                    }
-                }
+                DontCheckDefaultBrowser = $true
+                OverrideFirstRunPage = ""
+                OverridePostUpdatePage = ""
+                DisableProfileImport = $true
+                DisableSetDesktopBackground = $true
+                DisableFirefoxStudies = $true
+                DisableTelemetry = $true
+                DisablePocket = $true
+                PromptForDownloadLocation = $false
                 PasswordManagerEnabled = $false
                 OfferToSaveLogins = $false
                 AutofillAddressEnabled = $false
                 AutofillCreditCardEnabled = $false
-                DisablePocket = $true
-                DisableTelemetry = $true
                 Homepage = @{
                     URL = "https://duckduckgo.com"
                     Locked = $false
@@ -156,6 +150,33 @@ if (-not $SkipBrowserPrivacy) {
                     Snippets = $false
                     Locked = $true
                 }
+                Preferences = @{
+                    "browser.aboutwelcome.enabled" = @{ Value = $false; Status = "locked" }
+                    "browser.startup.homepage_welcome_url" = @{ Value = ""; Status = "locked" }
+                    "browser.startup.homepage_welcome_url.additional" = @{ Value = ""; Status = "locked" }
+                    "trailhead.firstrun.didSeeAboutWelcome" = @{ Value = $true; Status = "locked" }
+                    "browser.shell.checkDefaultBrowser" = @{ Value = $false; Status = "locked" }
+                    "browser.startup.windowsLaunchOnLogin.enabled" = @{ Value = $false; Status = "locked" }
+                    "doh-rollout.doneFirstRun" = @{ Value = $true; Status = "locked" }
+                    "app.shield.optoutstudies.enabled" = @{ Value = $false; Status = "locked" }
+                    "datareporting.policy.dataSubmissionPolicyAcceptedVersion" = @{ Value = 2; Status = "locked" }
+                    "browser.newtabpage.activity-stream.asrouter.userprefs.cfr.addons" = @{ Value = $false; Status = "locked" }
+                    "browser.newtabpage.activity-stream.asrouter.userprefs.cfr.features" = @{ Value = $false; Status = "locked" }
+                    "browser.tabs.warnOnClose" = @{ Value = $false; Status = "default" }
+                }
+                ExtensionSettings = @{
+                    "uBlock0@raymondhill.net" = @{
+                        installation_mode = "force_installed"
+                        install_url = "https://addons.mozilla.org/firefox/downloads/latest/ublock-origin/latest.xpi"
+                    }
+                }
+                "3rdparty" = @{
+                    Extensions = @{
+                        "uBlock0@raymondhill.net" = @{
+                            adminSettings = $adminSettingsObj
+                        }
+                    }
+                }
             }
         }
 
@@ -163,9 +184,34 @@ if (-not $SkipBrowserPrivacy) {
             if (-not (Test-Path $distDir)) { New-Item -ItemType Directory -Path $distDir -Force | Out-Null }
             $updatedJson = $ffPolicyPayload | ConvertTo-Json -Depth 10
             [System.IO.File]::WriteAllText($policiesPath, $updatedJson, [System.Text.Encoding]::UTF8)
-            Write-MaintLog "    [APPLIED] Updated Firefox distribution/policies.json (uBlock Origin + Credential Defense)." "ACTION" ([ConsoleColor]::Green)
+            Write-MaintLog "    [APPLIED] Updated Firefox distribution/policies.json (uBlock Origin + Credential Defense + First-Run Bypass)." "ACTION" ([ConsoleColor]::Green)
+
+            # Scrub any Mozilla-Firefox autostart entries across all Run keys
+            $runLocations = @(
+                "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run",
+                "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Run",
+                "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run"
+            )
+            Get-ChildItem Registry::HKEY_USERS -ErrorAction SilentlyContinue | Where-Object { $_.PSChildName -match '^S-1-5-21' } | ForEach-Object {
+                $runLocations += "Registry::HKEY_USERS\$($_.PSChildName)\SOFTWARE\Microsoft\Windows\CurrentVersion\Run"
+            }
+            foreach ($rLoc in $runLocations) {
+                if (Test-Path $rLoc) {
+                    $props = (Get-ItemProperty $rLoc -ErrorAction SilentlyContinue).PSObject.Properties | Where-Object { $_.Name -like "*Firefox*" }
+                    foreach ($p in $props) {
+                        Remove-ItemProperty -Path $rLoc -Name $p.Name -ErrorAction SilentlyContinue | Out-Null
+                        Write-MaintLog "    Removed Firefox autostart entry '$($p.Name)' from $rLoc." "ACTION" ([ConsoleColor]::Yellow)
+                    }
+                }
+            }
+
+            # Disable Firefox background scheduled tasks
+            Get-ScheduledTask | Where-Object { ($_.TaskName -like "*Firefox*") -or ($_.TaskPath -like "*Mozilla*") } | ForEach-Object {
+                Disable-ScheduledTask -TaskName $_.TaskName -ErrorAction SilentlyContinue | Out-Null
+                Write-MaintLog "    Disabled Firefox scheduled task: $($_.TaskName)." "ACTION" ([ConsoleColor]::Yellow)
+            }
         } else {
-            Write-MaintLog "    [DryRun] Would update Firefox policies.json with uBlock Origin and credential defense." "INFO" ([ConsoleColor]::Gray)
+            Write-MaintLog "    [DryRun] Would update Firefox policies.json with uBlock Origin, credential defense, and first-run bypass." "INFO" ([ConsoleColor]::Gray)
         }
     }
 
@@ -175,6 +221,10 @@ if (-not $SkipBrowserPrivacy) {
     Set-RegistryPolicy -Path $ffRegPath -Name "OfferToSaveLogins" -Value 0 -Description "Firefox: Disable Login Save Prompts"
     Set-RegistryPolicy -Path $ffRegPath -Name "DisablePocket" -Value 1 -Description "Firefox: Disable Pocket Feed"
     Set-RegistryPolicy -Path $ffRegPath -Name "DisableTelemetry" -Value 1 -Description "Firefox: Disable Telemetry"
+    Set-RegistryPolicy -Path $ffRegPath -Name "DontCheckDefaultBrowser" -Value 1 -Description "Firefox: Disable Default Browser Check"
+    Set-RegistryPolicy -Path $ffRegPath -Name "DisableProfileImport" -Value 1 -Description "Firefox: Disable Profile Import Prompt"
+    Set-RegistryPolicy -Path $ffRegPath -Name "OverrideFirstRunPage" -Value "" -PropertyType "String" -Description "Firefox: Suppress First Run Page"
+    Set-RegistryPolicy -Path $ffRegPath -Name "OverridePostUpdatePage" -Value "" -PropertyType "String" -Description "Firefox: Suppress Post Update Page"
 
     # B. Google Chrome
     Write-MaintLog "  Configuring Google Chrome Policies..." "INFO" ([ConsoleColor]::Yellow)

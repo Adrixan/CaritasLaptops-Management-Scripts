@@ -68,14 +68,23 @@ $tuiLauncher = if (Test-Path "$baseDir\Caritas-Verwaltung-TUI.cmd") {
     "$baseDir\scripts\Caritas-ControlCenter.ps1"
 }
 
-# 5. Deploy Desktop Shortcuts to Administrator Profiles
+# 5. Deploy Desktop Shortcuts to Active Administrator Profiles
 $wsh = New-Object -ComObject WScript.Shell
 
+$adminGroupMembers = (Get-LocalGroupMember -Group (Get-LocalGroup -SID 'S-1-5-32-544').Name -ErrorAction SilentlyContinue).Name | ForEach-Object { ($_ -split '\\')[-1] }
+$activeAdminNames = Get-LocalUser -ErrorAction SilentlyContinue | Where-Object { $_.Enabled -and ($_.Name -in $adminGroupMembers) } | Select-Object -ExpandProperty Name
+
 $adminProfiles = @()
-$userProfiles = Get-ChildItem -Path "C:\Users" -Directory | Where-Object { $_.Name -notin @("Default", "Default User", "All Users", "Public", "User") }
+# Include current caller desktop
+$currentDesktop = [Environment]::GetFolderPath("Desktop")
+if ($currentDesktop -and (Test-Path $currentDesktop)) {
+    $adminProfiles += $currentDesktop
+}
+
+$userProfiles = Get-ChildItem -Path "C:\Users" -Directory | Where-Object { $_.Name -in $activeAdminNames }
 foreach ($p in $userProfiles) {
     $desktopPath = Join-Path $p.FullName "Desktop"
-    if (Test-Path $desktopPath) {
+    if ((Test-Path $desktopPath) -and ($desktopPath -notin $adminProfiles)) {
         $adminProfiles += $desktopPath
     }
 }

@@ -107,6 +107,7 @@ The script [`scripts/Configure-CaritasHardening.ps1`](file:///home/Adrixan/code/
 - Continuous Availability: Disables standby timeout, hibernation timeout, and disk spindown across AC/DC profiles. Disables hibernation via `powercfg /hibernate off` to purge `hiberfil.sys` and reclaim SSD space. Sets AC lid close action to do nothing.
 - Windows Defender Threat Mitigation: Enables Potentially Unwanted Application (PUA) blocking, real-time protection, script scanning, IOAV archive scanning, and cloud protection.
 - Peripheral & Protocol Hardening: Disables AutoRun/AutoPlay (`NoDriveTypeAutoRun = 255`) to eliminate thumb drive infection vectors. Disables legacy SMBv1, LLMNR multicast resolution, and NetBIOS over TCP/IP across all network adapters.
+- Privacy & OOBE Experience Suppression: Suppresses Out-Of-Box Experience privacy prompts (`DisablePrivacyExperience = 1`) on first administrator or patron logon. Pre-configures strict privacy defaults: disables location sensors and geolocation scripting, disables inking and typing personalization (keylogging), disables Find My Device tracking, disables speech model cloud updates, disables first-logon animations, and prevents Windows from restarting applications automatically after sign-in. Stamps privacy consent flags across active and default user registry hives.
 - Privacy & Telemetry: Restricts diagnostic data telemetry to the minimum Required baseline (`AllowTelemetry = 1`), disables advertising ID, and disables Start Menu web search integration.
 - Baseline Defaults: Enforces visible file extensions (`HideFileExt = 0`) and disables Fast Startup (Hybrid Boot) to prevent kernel session corruption.
 - Logging: Recorded to `logs\Hardening.log`.
@@ -124,6 +125,7 @@ The script [`scripts/Reset-CaritasUserProfile.ps1`](file:///home/Adrixan/code/Ca
 The script [`scripts/Configure-CaritasDefaults.ps1`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/scripts/Configure-CaritasDefaults.ps1) establishes system-wide associations and web filtering:
 - Protocol & Extension Catalog: Compiles an OEM association catalog mapping Mozilla Firefox for web and PDF viewing, VLC Media Player for all audio/video formats, Microsoft Office for proprietary formats, LibreOffice for OpenDocument formats, and 7-Zip for compressed archives.
 - Live DISM Import: Applies associations into the active system image via `dism.exe /Online /Import-DefaultAppAssociations` and enforces `DefaultAssociationsConfiguration` via Group Policy.
+- Firefox Pre-Configuration: Deploys locked enterprise policies in `distribution\policies.json` and HKLM registry to completely eliminate onboarding wizards (`about:welcome`), default browser checks, and profile import dialogs. Scrubs autostart `Run` registry entries across all user hives to prevent Firefox from launching automatically on system logon.
 - Multi-Browser Ad-Blocker: Force-installs uBlock Origin across Mozilla Firefox, Google Chrome, and Microsoft Edge via enterprise policies.
 - Curated Filter Lists: Pre-configures EasyList, EasyPrivacy, Malware protection (URLhaus), EasyList Germany (`DEU-0`) for regional websites, and EasyList Cookie / uBlock Annoyances to automatically suppress intrusive cookie consent banners.
 - Logging: Recorded to `logs\Defaults.log`.
@@ -147,7 +149,7 @@ The repository includes a continuous integration workflow in [`.github/workflows
 
 To publish a new version:
 ```bash
-git tag v1.0.1
-git push origin v1.0.1
+git tag v1.0.3
+git push origin v1.0.3
 ```
 Laptops running the Control Center will detect the new version within seconds and prompt administrators to update in place.

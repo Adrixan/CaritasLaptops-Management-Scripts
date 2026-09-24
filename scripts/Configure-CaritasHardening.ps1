@@ -82,7 +82,7 @@ function Set-RegistryPolicy {
         if ($DryRun) {
             Write-HardeningLog "  [DryRun] Would set $($Description): $Path -> $Name = $Value (Current: $currentVal)" "INFO" ([ConsoleColor]::Gray)
         } else {
-            Set-ItemProperty -Path $Path -Name $Name -Value $Value -Type $PropertyType -Force | Out-Null
+            New-ItemProperty -Path $Path -Name $Name -Value $Value -PropertyType $PropertyType -Force | Out-Null
             Write-HardeningLog "  [APPLIED] $($Description): $Name = $Value" "ACTION" ([ConsoleColor]::Yellow)
         }
     }
@@ -292,6 +292,78 @@ if (-not $SkipPrivacy) {
     $settingSyncPolicyPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\SettingSync"
     Set-RegistryPolicy -Path $settingSyncPolicyPath -Name "DisableSettingSync" -Value 2 -Description "Disable Windows Settings Synchronization"
     Set-RegistryPolicy -Path $settingSyncPolicyPath -Name "DisableSettingSyncUserOverride" -Value 1 -Description "Disable Settings Sync user override"
+
+    # I. Suppress OOBE Privacy Experience Questions on First Logon
+    $oobePolicyPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\OOBE"
+    Set-RegistryPolicy -Path $oobePolicyPath -Name "DisablePrivacyExperience" -Value 1 -Description "Disable OOBE privacy setup questions"
+    Set-RegistryPolicy -Path $systemPoliciesPath -Name "DisablePrivacyExperience" -Value 1 -Description "Disable privacy settings experience on logon"
+    Set-RegistryPolicy -Path $systemPoliciesPath -Name "EnableFirstLogonAnimation" -Value 0 -Description "Disable first logon animation"
+    Set-RegistryPolicy -Path $systemPolicyPath -Name "DisablePrivacyExperience" -Value 1 -Description "Disable privacy experience in system policy"
+
+    # J. Disable Location Services & Geolocation Sensors
+    $locationPolicyPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\LocationAndSensors"
+    Set-RegistryPolicy -Path $locationPolicyPath -Name "DisableLocation" -Value 1 -Description "Disable location sensors machine-wide"
+    Set-RegistryPolicy -Path $locationPolicyPath -Name "DisableLocationScripting" -Value 1 -Description "Disable location scripting access"
+    Set-RegistryPolicy -Path $locationPolicyPath -Name "DisableSensors" -Value 1 -Description "Disable system sensors"
+    $consentStoreLoc = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\location"
+    Set-RegistryPolicy -Path $consentStoreLoc -Name "Value" -Value "Deny" -PropertyType "String" -Description "Deny app access to location by default"
+
+    # K. Disable Inking and Typing Data Personalization (Keylogger / Dictionaries)
+    $inputPolicyPath = "HKLM:\SOFTWARE\Policies\Microsoft\InputPersonalization"
+    Set-RegistryPolicy -Path $inputPolicyPath -Name "AllowInputPersonalization" -Value 0 -Description "Disable input and typing personalization"
+    Set-RegistryPolicy -Path $inputPolicyPath -Name "RestrictImplicitInkCollection" -Value 1 -Description "Restrict implicit ink collection"
+    Set-RegistryPolicy -Path $inputPolicyPath -Name "RestrictImplicitTextCollection" -Value 1 -Description "Restrict implicit text collection"
+
+    # L. Disable Find My Device
+    $findMyDevicePath = "HKLM:\SOFTWARE\Policies\Microsoft\FindMyDevice"
+    Set-RegistryPolicy -Path $findMyDevicePath -Name "AllowFindMyDevice" -Value 0 -Description "Disable Find My Device tracking"
+
+    # M. Disable Speech Model Updates & Online Speech Recognition
+    $speechPolicyPath = "HKLM:\SOFTWARE\Policies\Microsoft\Speech"
+    Set-RegistryPolicy -Path $speechPolicyPath -Name "AllowSpeechModelUpdate" -Value 0 -Description "Disable speech model cloud updates"
+
+    # N. Disable Windows Welcome Experience, Tips, and App Auto-Restart
+    $userEngagementPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\UserProfileEngagement"
+    Set-RegistryPolicy -Path $userEngagementPath -Name "ScoobeSystemSettingEnabled" -Value 0 -Description "Disable SCOOBE second-chance setup experience"
+    Set-RegistryPolicy -Path $userEngagementPath -Name "ShowWindowsProvider" -Value 0 -Description "Disable Windows Provider engagement popups"
+
+    $winlogonPath = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
+    Set-RegistryPolicy -Path $winlogonPath -Name "RestartApps" -Value 0 -Description "Disable automatic restarting of apps on sign-in"
+    Set-RegistryPolicy -Path $systemPolicyPath -Name "DisableRestartApps" -Value 1 -Description "Disable app auto-restart via group policy"
+
+    Set-RegistryPolicy -Path $cloudContentPath -Name "DisableSoftLanding" -Value 1 -Description "Disable soft landing tips and promotional suggestions"
+    Set-RegistryPolicy -Path $cloudContentPath -Name "DisableWindowsSpotlightFeatures" -Value 1 -Description "Disable Windows Spotlight lock screen promotions"
+
+    # O. Stamp Privacy Defaults into Active and Default User Hives
+    if (-not $DryRun) {
+        $loadedHives = @("HKU:\.DEFAULT")
+        Get-ChildItem Registry::HKEY_USERS -ErrorAction SilentlyContinue | Where-Object { $_.PSChildName -match '^S-1-5-21' -and $_.PSChildName -notmatch '_Classes$' } | ForEach-Object {
+            $loadedHives += "Registry::HKEY_USERS\$($_.PSChildName)"
+        }
+        foreach ($hive in $loadedHives) {
+            $cdmPath = "$hive\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager"
+            if (-not (Test-Path $cdmPath)) { New-Item -Path $cdmPath -Force -ErrorAction SilentlyContinue | Out-Null }
+            foreach ($sub in @("310093", "338387", "338388", "338389", "353694", "353696", "353698")) {
+                New-ItemProperty -Path $cdmPath -Name "SubscribedContent-${sub}Enabled" -Value 0 -PropertyType DWord -Force -ErrorAction SilentlyContinue | Out-Null
+            }
+            New-ItemProperty -Path $cdmPath -Name "SoftLandingEnabled" -Value 0 -PropertyType DWord -Force -ErrorAction SilentlyContinue | Out-Null
+            New-ItemProperty -Path $cdmPath -Name "ContentDeliveryAllowed" -Value 0 -PropertyType DWord -Force -ErrorAction SilentlyContinue | Out-Null
+
+            $privPath = "$hive\SOFTWARE\Microsoft\Windows\CurrentVersion\Privacy"
+            if (-not (Test-Path $privPath)) { New-Item -Path $privPath -Force -ErrorAction SilentlyContinue | Out-Null }
+            New-ItemProperty -Path $privPath -Name "TailoredExperiencesWithDiagnosticDataEnabled" -Value 0 -PropertyType DWord -Force -ErrorAction SilentlyContinue | Out-Null
+
+            $settingsPath = "$hive\SOFTWARE\Microsoft\Personalization\Settings"
+            if (-not (Test-Path $settingsPath)) { New-Item -Path $settingsPath -Force -ErrorAction SilentlyContinue | Out-Null }
+            New-ItemProperty -Path $settingsPath -Name "AcceptedPrivacyPolicy" -Value 1 -PropertyType DWord -Force -ErrorAction SilentlyContinue | Out-Null
+
+            $engagePath = "$hive\SOFTWARE\Microsoft\Windows\CurrentVersion\UserProfileEngagement"
+            if (-not (Test-Path $engagePath)) { New-Item -Path $engagePath -Force -ErrorAction SilentlyContinue | Out-Null }
+            New-ItemProperty -Path $engagePath -Name "ScoobeSystemSettingEnabled" -Value 0 -PropertyType DWord -Force -ErrorAction SilentlyContinue | Out-Null
+            New-ItemProperty -Path $engagePath -Name "ShowWindowsProvider" -Value 0 -PropertyType DWord -Force -ErrorAction SilentlyContinue | Out-Null
+        }
+        Write-HardeningLog "  [OK] Stamped privacy consent and welcome bypass across $($loadedHives.Count) user profile hives." "INFO" ([ConsoleColor]::Green)
+    }
 } else {
     Write-HardeningLog "[Module 4/5] Privacy configuration skipped via -SkipPrivacy flag." "INFO" ([ConsoleColor]::Gray)
 }
