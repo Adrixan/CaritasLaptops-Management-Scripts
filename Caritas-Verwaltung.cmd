@@ -25,6 +25,6 @@ if exist "%GUI_SCRIPT%" (
 
 rem Launch PowerShell elevated in Single-Thread Apartment mode with execution policy bypass
 powershell.exe -NoProfile -ExecutionPolicy Bypass -Command ^
-    "Start-Process powershell.exe -ArgumentList '-Sta -NoProfile -ExecutionPolicy Bypass -File \"\"%TARGET_SCRIPT%\"\"' -Verb RunAs"
+    "Start-Process powershell.exe -ArgumentList @('-Sta', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', '%TARGET_SCRIPT%') -Verb RunAs"
 
 endlocal

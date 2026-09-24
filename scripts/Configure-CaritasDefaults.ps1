@@ -192,7 +192,7 @@ if (-not $SkipAssociations) {
         # Enforce DefaultAssociationsConfiguration Group Policy for all new profiles
         $sysPolicyPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System"
         if (-not (Test-Path $sysPolicyPath)) { New-Item -Path $sysPolicyPath -Force | Out-Null }
-        Set-ItemProperty -Path $sysPolicyPath -Name "DefaultAssociationsConfiguration" -Value $xmlPath -Type String -Force | Out-Null
+        New-ItemProperty -Path $sysPolicyPath -Name "DefaultAssociationsConfiguration" -Value $xmlPath -PropertyType String -Force | Out-Null
         Write-DefaultsLog "  [APPLIED] Policy DefaultAssociationsConfiguration set to '$xmlPath'." "ACTION" ([ConsoleColor]::Green)
 
         # Apply to live operating system image via DISM
@@ -246,6 +246,48 @@ if (-not $SkipExtensions) {
 
     $ffPolicyPayload = @{
         policies = @{
+            DontCheckDefaultBrowser = $true
+            OverrideFirstRunPage = ""
+            OverridePostUpdatePage = ""
+            DisableProfileImport = $true
+            DisableSetDesktopBackground = $true
+            DisableFirefoxStudies = $true
+            DisableTelemetry = $true
+            DisablePocket = $true
+            PromptForDownloadLocation = $false
+            PasswordManagerEnabled = $false
+            OfferToSaveLogins = $false
+            AutofillAddressEnabled = $false
+            AutofillCreditCardEnabled = $false
+            Homepage = @{
+                URL = "https://duckduckgo.com"
+                Locked = $false
+                StartPage = "homepage"
+            }
+            FirefoxHome = @{
+                Search = $true
+                TopSites = $false
+                SponsoredTopSites = $false
+                Highlights = $false
+                Pocket = $false
+                SponsoredPocket = $false
+                Snippets = $false
+                Locked = $true
+            }
+            Preferences = @{
+                "browser.aboutwelcome.enabled" = @{ Value = $false; Status = "locked" }
+                "browser.startup.homepage_welcome_url" = @{ Value = ""; Status = "locked" }
+                "browser.startup.homepage_welcome_url.additional" = @{ Value = ""; Status = "locked" }
+                "trailhead.firstrun.didSeeAboutWelcome" = @{ Value = $true; Status = "locked" }
+                "browser.shell.checkDefaultBrowser" = @{ Value = $false; Status = "locked" }
+                "browser.startup.windowsLaunchOnLogin.enabled" = @{ Value = $false; Status = "locked" }
+                "doh-rollout.doneFirstRun" = @{ Value = $true; Status = "locked" }
+                "app.shield.optoutstudies.enabled" = @{ Value = $false; Status = "locked" }
+                "datareporting.policy.dataSubmissionPolicyAcceptedVersion" = @{ Value = 2; Status = "locked" }
+                "browser.newtabpage.activity-stream.asrouter.userprefs.cfr.addons" = @{ Value = $false; Status = "locked" }
+                "browser.newtabpage.activity-stream.asrouter.userprefs.cfr.features" = @{ Value = $false; Status = "locked" }
+                "browser.tabs.warnOnClose" = @{ Value = $false; Status = "default" }
+            }
             ExtensionSettings = @{
                 "uBlock0@raymondhill.net" = @{
                     installation_mode = "force_installed"
@@ -276,16 +318,50 @@ if (-not $SkipExtensions) {
         # 2. HKLM Registry Policy for Firefox
         $ffRegPolicy = "HKLM:\SOFTWARE\Policies\Mozilla\Firefox"
         if (-not (Test-Path $ffRegPolicy)) { New-Item -Path $ffRegPolicy -Force | Out-Null }
+        New-ItemProperty -Path $ffRegPolicy -Name "DontCheckDefaultBrowser" -Value 1 -PropertyType DWord -Force | Out-Null
+        New-ItemProperty -Path $ffRegPolicy -Name "DisableProfileImport" -Value 1 -PropertyType DWord -Force | Out-Null
+        New-ItemProperty -Path $ffRegPolicy -Name "DisableTelemetry" -Value 1 -PropertyType DWord -Force | Out-Null
+        New-ItemProperty -Path $ffRegPolicy -Name "DisablePocket" -Value 1 -PropertyType DWord -Force | Out-Null
+        New-ItemProperty -Path $ffRegPolicy -Name "PasswordManagerEnabled" -Value 0 -PropertyType DWord -Force | Out-Null
+        New-ItemProperty -Path $ffRegPolicy -Name "OfferToSaveLogins" -Value 0 -PropertyType DWord -Force | Out-Null
+        New-ItemProperty -Path $ffRegPolicy -Name "OverrideFirstRunPage" -Value "" -PropertyType String -Force | Out-Null
+        New-ItemProperty -Path $ffRegPolicy -Name "OverridePostUpdatePage" -Value "" -PropertyType String -Force | Out-Null
 
         $ffExtSettingsKey = "$ffRegPolicy\ExtensionSettings\uBlock0@raymondhill.net"
         if (-not (Test-Path $ffExtSettingsKey)) { New-Item -Path $ffExtSettingsKey -Force | Out-Null }
-        Set-ItemProperty -Path $ffExtSettingsKey -Name "installation_mode" -Value "force_installed" -Type String -Force | Out-Null
-        Set-ItemProperty -Path $ffExtSettingsKey -Name "install_url" -Value "https://addons.mozilla.org/firefox/downloads/latest/ublock-origin/latest.xpi" -Type String -Force | Out-Null
+        New-ItemProperty -Path $ffExtSettingsKey -Name "installation_mode" -Value "force_installed" -PropertyType String -Force | Out-Null
+        New-ItemProperty -Path $ffExtSettingsKey -Name "install_url" -Value "https://addons.mozilla.org/firefox/downloads/latest/ublock-origin/latest.xpi" -PropertyType String -Force | Out-Null
 
         $ffManagedKey = "$ffRegPolicy\3rdparty\Extensions\uBlock0@raymondhill.net"
         if (-not (Test-Path $ffManagedKey)) { New-Item -Path $ffManagedKey -Force | Out-Null }
-        Set-ItemProperty -Path $ffManagedKey -Name "adminSettings" -Value $adminSettingsJson -Type String -Force | Out-Null
-        Write-DefaultsLog "    [OK] Mozilla Firefox registry policies configured." "ACTION" ([ConsoleColor]::Green)
+        New-ItemProperty -Path $ffManagedKey -Name "adminSettings" -Value $adminSettingsJson -PropertyType String -Force | Out-Null
+
+        # 3. Scrub Mozilla-Firefox autostart entries across all Run keys
+        $runLocations = @(
+            "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run",
+            "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Run",
+            "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run"
+        )
+        Get-ChildItem Registry::HKEY_USERS -ErrorAction SilentlyContinue | Where-Object { $_.PSChildName -match '^S-1-5-21' } | ForEach-Object {
+            $runLocations += "Registry::HKEY_USERS\$($_.PSChildName)\SOFTWARE\Microsoft\Windows\CurrentVersion\Run"
+        }
+        foreach ($rLoc in $runLocations) {
+            if (Test-Path $rLoc) {
+                $props = (Get-ItemProperty $rLoc -ErrorAction SilentlyContinue).PSObject.Properties | Where-Object { $_.Name -like "*Firefox*" }
+                foreach ($p in $props) {
+                    Remove-ItemProperty -Path $rLoc -Name $p.Name -ErrorAction SilentlyContinue | Out-Null
+                    Write-DefaultsLog "    Removed Firefox autostart entry '$($p.Name)' from $rLoc." "ACTION" ([ConsoleColor]::Yellow)
+                }
+            }
+        }
+
+        # 4. Disable Firefox background scheduled tasks
+        Get-ScheduledTask | Where-Object { ($_.TaskName -like "*Firefox*") -or ($_.TaskPath -like "*Mozilla*") } | ForEach-Object {
+            Disable-ScheduledTask -TaskName $_.TaskName -ErrorAction SilentlyContinue | Out-Null
+            Write-DefaultsLog "    Disabled Firefox scheduled task: $($_.TaskName)." "ACTION" ([ConsoleColor]::Yellow)
+        }
+
+        Write-DefaultsLog "    [OK] Mozilla Firefox pre-configured with first-run dialogue suppression." "ACTION" ([ConsoleColor]::Green)
     } else {
         Write-DefaultsLog "    [DryRun] Would write Firefox policies.json and HKLM policies." "INFO" ([ConsoleColor]::Gray)
     }
@@ -297,17 +373,17 @@ if (-not $SkipExtensions) {
         if (-not (Test-Path $chromePolicyPath)) { New-Item -Path $chromePolicyPath -Force | Out-Null }
 
         # Enable Manifest V2 availability via enterprise policy
-        Set-ItemProperty -Path $chromePolicyPath -Name "ExtensionManifestV2Availability" -Value 2 -Type DWord -Force | Out-Null
+        New-ItemProperty -Path $chromePolicyPath -Name "ExtensionManifestV2Availability" -Value 2 -PropertyType DWord -Force | Out-Null
 
         # Force install uBlock Origin extension
         $chromeForceKey = "$chromePolicyPath\ExtensionInstallForcelist"
         if (-not (Test-Path $chromeForceKey)) { New-Item -Path $chromeForceKey -Force | Out-Null }
-        Set-ItemProperty -Path $chromeForceKey -Name "1" -Value "cjpalhdlnbpafiamejdnhcphjbkeiagm;https://clients2.google.com/service/update2/crx" -Type String -Force | Out-Null
+        New-ItemProperty -Path $chromeForceKey -Name "1" -Value "cjpalhdlnbpafiamejdnhcphjbkeiagm;https://clients2.google.com/service/update2/crx" -PropertyType String -Force | Out-Null
 
         # Admin settings / filter lists
         $chromeAdminKey = "$chromePolicyPath\3rdparty\extensions\cjpalhdlnbpafiamejdnhcphjbkeiagm\policy"
         if (-not (Test-Path $chromeAdminKey)) { New-Item -Path $chromeAdminKey -Force | Out-Null }
-        Set-ItemProperty -Path $chromeAdminKey -Name "adminSettings" -Value $adminSettingsJson -Type String -Force | Out-Null
+        New-ItemProperty -Path $chromeAdminKey -Name "adminSettings" -Value $adminSettingsJson -PropertyType String -Force | Out-Null
 
         Write-DefaultsLog "    [OK] Google Chrome policies configured (uBlock Origin forced, MV2 enabled, filter lists mapped)." "ACTION" ([ConsoleColor]::Green)
     } else {
@@ -321,17 +397,17 @@ if (-not $SkipExtensions) {
         if (-not (Test-Path $edgePolicyPath)) { New-Item -Path $edgePolicyPath -Force | Out-Null }
 
         # Enable Manifest V2 availability via enterprise policy
-        Set-ItemProperty -Path $edgePolicyPath -Name "ExtensionManifestV2Availability" -Value 2 -Type DWord -Force | Out-Null
+        New-ItemProperty -Path $edgePolicyPath -Name "ExtensionManifestV2Availability" -Value 2 -PropertyType DWord -Force | Out-Null
 
         # Force install uBlock Origin extension from Microsoft Edge Add-ons store
         $edgeForceKey = "$edgePolicyPath\ExtensionInstallForcelist"
         if (-not (Test-Path $edgeForceKey)) { New-Item -Path $edgeForceKey -Force | Out-Null }
-        Set-ItemProperty -Path $edgeForceKey -Name "1" -Value "odfafepnkmbhccpbejgmiehpchacaeak;https://edge.microsoft.com/extensionstore/crx" -Type String -Force | Out-Null
+        New-ItemProperty -Path $edgeForceKey -Name "1" -Value "odfafepnkmbhccpbejgmiehpchacaeak;https://edge.microsoft.com/extensionstore/crx" -PropertyType String -Force | Out-Null
 
         # Admin settings / filter lists
         $edgeAdminKey = "$edgePolicyPath\3rdparty\extensions\odfafepnkmbhccpbejgmiehpchacaeak\policy"
         if (-not (Test-Path $edgeAdminKey)) { New-Item -Path $edgeAdminKey -Force | Out-Null }
-        Set-ItemProperty -Path $edgeAdminKey -Name "adminSettings" -Value $adminSettingsJson -Type String -Force | Out-Null
+        New-ItemProperty -Path $edgeAdminKey -Name "adminSettings" -Value $adminSettingsJson -PropertyType String -Force | Out-Null
 
         Write-DefaultsLog "    [OK] Microsoft Edge policies configured (uBlock Origin forced, MV2 enabled, filter lists mapped)." "ACTION" ([ConsoleColor]::Green)
     } else {
