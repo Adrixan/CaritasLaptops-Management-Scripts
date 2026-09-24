@@ -119,6 +119,30 @@ foreach ($dPath in $adminProfiles) {
     }
 }
 
+# 6. Configure Automatic Logon for Standard Account 'User'
+Write-Host "[*] Konfiguriere automatische Anmeldung (Autologon) für Benutzer 'User'..." -ForegroundColor Cyan
+try {
+    $localUser = Get-LocalUser -Name "User" -ErrorAction SilentlyContinue
+    if (-not $localUser) {
+        New-LocalUser -Name "User" -Description "Standard-Gastkonto" -NoPassword -ErrorAction SilentlyContinue | Out-Null
+    }
+    Set-LocalUser -Name "User" -PasswordNeverExpires $true -ErrorAction SilentlyContinue | Out-Null
+    $usersGroupName = (Get-LocalGroup | Where-Object { $_.SID.Value -eq "S-1-5-32-545" }).Name
+    Add-LocalGroupMember -Group $usersGroupName -Member "User" -ErrorAction SilentlyContinue
+
+    $winlogonKey = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
+    Set-ItemProperty -Path $winlogonKey -Name "AutoAdminLogon" -Value "1" -Type String -Force
+    Set-ItemProperty -Path $winlogonKey -Name "DefaultUserName" -Value "User" -Type String -Force
+    Set-ItemProperty -Path $winlogonKey -Name "DefaultDomainName" -Value $env:COMPUTERNAME -Type String -Force
+    Set-ItemProperty -Path $winlogonKey -Name "DefaultPassword" -Value "" -Type String -Force
+    Set-ItemProperty -Path $winlogonKey -Name "ForceAutoLogon" -Value "1" -Type String -Force
+    Set-ItemProperty -Path $winlogonKey -Name "LastUsedUsername" -Value "User" -Type String -Force
+    Remove-ItemProperty -Path $winlogonKey -Name "AutoLogonCount" -ErrorAction SilentlyContinue
+    Write-Host "[+] Automatische Windows-Anmeldung für 'User' aktiviert." -ForegroundColor Green
+} catch {
+    Write-Host "[-] Fehler beim Konfigurieren der automatischen Anmeldung: $_" -ForegroundColor Yellow
+}
+
 Write-Host "==============================================================" -ForegroundColor Cyan
 Write-Host "  INITIALISIERUNG ERFOLGREICH ABGESCHLOSSEN!" -ForegroundColor Green
 Write-Host "  Die Verwaltungswerkzeuge sind einsatzbereit." -ForegroundColor Green

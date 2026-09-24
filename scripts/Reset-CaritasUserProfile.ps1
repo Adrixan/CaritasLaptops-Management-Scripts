@@ -69,121 +69,124 @@ function Write-ResetLog {
 }
 
 Write-ResetLog "==========================================================" "START" ([ConsoleColor]::Cyan)
-Write-ResetLog "Starting User Profile Reset and Clean Slate Automation" "START" ([ConsoleColor]::Cyan)
-Write-ResetLog "Target Account: $TargetUsername | Host: $env:COMPUTERNAME | Caller: $env:USERNAME" "INFO" ([ConsoleColor]::Gray)
+Write-ResetLog "Starte Bereinigung und Zurücksetzung des Benutzerkontos '$TargetUsername'" "START" ([ConsoleColor]::Cyan)
+Write-ResetLog "Zielkonto: $TargetUsername | Computer: $env:COMPUTERNAME | Aufrufer: $env:USERNAME" "INFO" ([ConsoleColor]::Gray)
 
 # 2. Enforce Isolation Policies (NoConnectedUser, DisableFileSyncNGSC, DisableSettingSync)
-Write-ResetLog "[Step 1/5] Verifying Machine Isolation Policies (MSA, OneDrive, Settings Sync)..." "INFO" ([ConsoleColor]::Yellow)
+Write-ResetLog "[Schritt 1/6] Überprüfe System-Isolationsrichtlinien (MSA, OneDrive, Synchronisation)..." "INFO" ([ConsoleColor]::Yellow)
 
 if (-not $DryRun) {
-    # Block Microsoft Account linking
+    Write-ResetLog "  -> Blockiere Microsoft-Konto Verknüpfung (NoConnectedUser=3)..." "ACTION" ([ConsoleColor]::Gray)
     $sysPolicy = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System"
     if (-not (Test-Path $sysPolicy)) { New-Item -Path $sysPolicy -Force | Out-Null }
     New-ItemProperty -Path $sysPolicy -Name "NoConnectedUser" -Value 3 -PropertyType DWord -Force | Out-Null
 
-    # Block OneDrive sync and file storage
+    Write-ResetLog "  -> Deaktiviere OneDrive Dateisynchronisation..." "ACTION" ([ConsoleColor]::Gray)
     $odPolicy = "HKLM:\SOFTWARE\Policies\Microsoft\OneDrive"
     if (-not (Test-Path $odPolicy)) { New-Item -Path $odPolicy -Force | Out-Null }
     New-ItemProperty -Path $odPolicy -Name "DisableFileSyncNGSC" -Value 1 -PropertyType DWord -Force | Out-Null
     New-ItemProperty -Path $odPolicy -Name "DisableFileSync" -Value 1 -PropertyType DWord -Force | Out-Null
 
-    # Block Settings Sync
+    Write-ResetLog "  -> Unterbinde Windows-Einstellungen-Synchronisation..." "ACTION" ([ConsoleColor]::Gray)
     $syncPolicy = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\SettingSync"
     if (-not (Test-Path $syncPolicy)) { New-Item -Path $syncPolicy -Force | Out-Null }
     New-ItemProperty -Path $syncPolicy -Name "DisableSettingSync" -Value 2 -PropertyType DWord -Force | Out-Null
     New-ItemProperty -Path $syncPolicy -Name "DisableSettingSyncUserOverride" -Value 1 -PropertyType DWord -Force | Out-Null
 
-    # Suppress OneDrive per-user installer
     Remove-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" -Name "OneDriveSetup" -ErrorAction SilentlyContinue
-
-    Write-ResetLog "  [OK] Isolation policies active: MSA blocked (3), OneDrive blocked (1), SettingSync blocked (2)." "INFO" ([ConsoleColor]::Green)
+    Write-ResetLog "  [OK] Isolationsrichtlinien erfolgreich überprüft und aktiv." "INFO" ([ConsoleColor]::Green)
 } else {
-    Write-ResetLog "  [DryRun] Would enforce NoConnectedUser=3, DisableFileSyncNGSC=1, DisableSettingSync=2." "INFO" ([ConsoleColor]::Gray)
+    Write-ResetLog "  [DryRun] Würde NoConnectedUser=3, DisableFileSyncNGSC=1, DisableSettingSync=2 erzwingen." "INFO" ([ConsoleColor]::Gray)
 }
 
 # 3. Terminate Active and Disconnected Sessions
-Write-ResetLog "[Step 2/5] Checking for active or disconnected sessions for '$TargetUsername'..." "INFO" ([ConsoleColor]::Yellow)
+Write-ResetLog "[Schritt 2/6] Prüfe und beende aktive Sitzungen für '$TargetUsername'..." "INFO" ([ConsoleColor]::Yellow)
 
 if (-not $DryRun) {
+    Write-ResetLog "  -> Überprüfe aktive Benutzersitzungen..." "ACTION" ([ConsoleColor]::Gray)
     $quserOutput = quser 2>$null
     if ($quserOutput) {
         foreach ($line in $quserOutput) {
             if ($line -match "(?i)\b$TargetUsername\b\s+(\S*)\s+(\d+)") {
                 $sessId = $matches[2]
-                Write-ResetLog "  Terminating session ID $sessId for '$TargetUsername'..." "ACTION" ([ConsoleColor]::Yellow)
+                Write-ResetLog "  -> Melde aktive Sitzung ID $sessId für '$TargetUsername' ab..." "ACTION" ([ConsoleColor]::Yellow)
                 logoff $sessId 2>$null
             }
         }
     }
 
-    # Stop any background tasks remaining under TargetUsername
+    Write-ResetLog "  -> Suche nach verbleibenden Hintergrundprozessen von '$TargetUsername'..." "ACTION" ([ConsoleColor]::Gray)
     $userProcesses = Get-Process -IncludeUserName -ErrorAction SilentlyContinue | Where-Object { $_.UserName -like "*\$TargetUsername" }
     if ($userProcesses) {
-        Write-ResetLog "  Stopping $($userProcesses.Count) remaining background process(es) for '$TargetUsername'..." "ACTION" ([ConsoleColor]::Yellow)
+        Write-ResetLog "  -> Beende $($userProcesses.Count) Prozess(e) von '$TargetUsername'..." "ACTION" ([ConsoleColor]::Yellow)
         $userProcesses | Stop-Process -Force -ErrorAction SilentlyContinue
+    } else {
+        Write-ResetLog "  -> Keine verbleibenden Hintergrundprozesse gefunden." "ACTION" ([ConsoleColor]::Gray)
     }
 
-    # Wait for User Profile Service (ProfSvc) to flush and dismount NTUSER.DAT
-    Start-Sleep -Seconds 3
+    Write-ResetLog "  -> Warte auf Freigabe von Dateisperren durch den Benutzerprofildienst (ProfSvc)..." "ACTION" ([ConsoleColor]::Gray)
+    Start-Sleep -Seconds 2
+    Write-ResetLog "  [OK] Sitzungen und Prozesse bereinigt." "INFO" ([ConsoleColor]::Green)
 } else {
-    Write-ResetLog "  [DryRun] Would log off session and terminate background processes for '$TargetUsername'." "INFO" ([ConsoleColor]::Gray)
+    Write-ResetLog "  [DryRun] Würde Sitzungen und Prozesse von '$TargetUsername' beenden." "INFO" ([ConsoleColor]::Gray)
 }
 
 # 4. Delete Profile via Native CIM API (Win32_UserProfile)
-Write-ResetLog "[Step 3/5] Locating and purging user profile via Win32_UserProfile..." "INFO" ([ConsoleColor]::Yellow)
+Write-ResetLog "[Schritt 3/6] Lösche Benutzerprofil über die Windows-CIM-Schnittstelle..." "INFO" ([ConsoleColor]::Yellow)
 
+Write-ResetLog "  -> Suche registriertes Profil in Win32_UserProfile..." "ACTION" ([ConsoleColor]::Gray)
 $targetProfile = Get-CimInstance -ClassName Win32_UserProfile | Where-Object {
     $_.LocalPath -like "*\$TargetUsername" -and -not $_.Special
 }
 
 if ($targetProfile) {
-    Write-ResetLog "  Found registered profile: $($targetProfile.LocalPath) (SID: $($targetProfile.SID), Loaded: $($targetProfile.Loaded))" "INFO" ([ConsoleColor]::Gray)
+    Write-ResetLog "  -> Registriertes Profil gefunden: $($targetProfile.LocalPath) (SID: $($targetProfile.SID))" "INFO" ([ConsoleColor]::Gray)
     if ($DryRun) {
-        Write-ResetLog "  [DryRun] Would call Win32_UserProfile.Delete() for profile at $($targetProfile.LocalPath)." "INFO" ([ConsoleColor]::Gray)
+        Write-ResetLog "  [DryRun] Würde Win32_UserProfile.Delete() für $($targetProfile.LocalPath) ausführen." "INFO" ([ConsoleColor]::Gray)
     } else {
-        # Retry loop to allow ProfSvc handle release
         $maxAttempts = 3
         $purged = $false
         for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
             try {
-                Write-ResetLog "  Executing profile deletion (Attempt $attempt of $maxAttempts)..." "ACTION" ([ConsoleColor]::Yellow)
+                Write-ResetLog "  -> Führe Profillöschung aus (Versuch $attempt von $maxAttempts)..." "ACTION" ([ConsoleColor]::Yellow)
                 Remove-CimInstance -InputObject $targetProfile -ErrorAction Stop
                 $purged = $true
-                Write-ResetLog "  [SUCCESS] Profile deleted successfully via CIM." "ACTION" ([ConsoleColor]::Green)
+                Write-ResetLog "  [OK] Benutzerprofil erfolgreich via Windows-CIM gelöscht." "ACTION" ([ConsoleColor]::Green)
                 break
             } catch {
-                Write-ResetLog "  Notice: CIM deletion attempt $attempt returned: $_" "WARN" ([ConsoleColor]::DarkGray)
+                Write-ResetLog "  -> Versuch $attempt ergab: $_. Wiederhole nach Freigabe..." "WARN" ([ConsoleColor]::DarkGray)
                 Start-Sleep -Seconds 2
-                # Re-fetch instance in case state changed
                 $targetProfile = Get-CimInstance -ClassName Win32_UserProfile | Where-Object { $_.LocalPath -like "*\$TargetUsername" -and -not $_.Special }
                 if (-not $targetProfile) {
                     $purged = $true
+                    Write-ResetLog "  [OK] Profil nicht mehr vorhanden." "ACTION" ([ConsoleColor]::Green)
                     break
                 }
             }
         }
 
         if (-not $purged) {
-            Write-ResetLog "  Fallback: Attempting WMI Delete method..." "WARN" ([ConsoleColor]::Yellow)
+            Write-ResetLog "  -> Fallback: Versuche Löschung über WMI-Methode..." "WARN" ([ConsoleColor]::Yellow)
             $wmiProf = Get-WmiObject -Class Win32_UserProfile | Where-Object { $_.LocalPath -like "*\$TargetUsername" }
             if ($wmiProf) {
                 try {
                     $wmiProf.Delete()
-                    Write-ResetLog "  [SUCCESS] Profile deleted via WMI fallback." "ACTION" ([ConsoleColor]::Green)
+                    Write-ResetLog "  [OK] Profil via WMI-Fallback gelöscht." "ACTION" ([ConsoleColor]::Green)
                 } catch {
-                    Write-ResetLog "  WMI Delete failed: $_" "WARN" ([ConsoleColor]::Red)
+                    Write-ResetLog "  [-] WMI-Löschung fehlgeschlagen: $_" "WARN" ([ConsoleColor]::Red)
                 }
             }
         }
     }
 } else {
-    Write-ResetLog "  [OK] No registered profile directory found for '$TargetUsername'." "INFO" ([ConsoleColor]::Green)
+    Write-ResetLog "  [OK] Kein registriertes Profil in Win32_UserProfile vorhanden (bereits sauber)." "INFO" ([ConsoleColor]::Green)
 }
 
 # 5. Clean Residual ProfileList Registry References & Filesystem Artifacts
-Write-ResetLog "[Step 4/5] Scrubbing residual ProfileList registry keys and directory locks..." "INFO" ([ConsoleColor]::Yellow)
+Write-ResetLog "[Schritt 4/6] Bereinige Profilliste in der Registrierung und Dateisystem-Reste..." "INFO" ([ConsoleColor]::Yellow)
 
 if (-not $DryRun) {
+    Write-ResetLog "  -> Prüfe HKLM ProfileList auf verwaiste Einträge..." "ACTION" ([ConsoleColor]::Gray)
     $profileListKey = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList"
     $orphanedKeys = Get-ChildItem -Path $profileListKey -ErrorAction SilentlyContinue | Where-Object {
         $imgPath = (Get-ItemProperty $_.PSPath -Name "ProfileImagePath" -ErrorAction SilentlyContinue).ProfileImagePath
@@ -191,29 +194,31 @@ if (-not $DryRun) {
     }
 
     foreach ($key in $orphanedKeys) {
-        Write-ResetLog "  Removing residual ProfileList key: $($key.PSChildName)" "ACTION" ([ConsoleColor]::Yellow)
+        Write-ResetLog "  -> Entferne verwaisten Registrierungsschlüssel: $($key.PSChildName)" "ACTION" ([ConsoleColor]::Yellow)
         Remove-Item -Path $key.PSPath -Recurse -Force -ErrorAction SilentlyContinue
     }
 
     $folderPath = "C:\Users\$TargetUsername"
     if (Test-Path $folderPath) {
-        Write-ResetLog "  Purging remaining directory contents at $folderPath..." "ACTION" ([ConsoleColor]::Yellow)
+        Write-ResetLog "  -> Entferne verbleibenden Profilordner: $folderPath..." "ACTION" ([ConsoleColor]::Yellow)
         Remove-Item -Path $folderPath -Recurse -Force -ErrorAction SilentlyContinue
     }
+    Write-ResetLog "  [OK] Registrierung und Profilordner bereinigt." "INFO" ([ConsoleColor]::Green)
 } else {
-    Write-ResetLog "  [DryRun] Would scrub residual ProfileList keys and remove C:\Users\$TargetUsername." "INFO" ([ConsoleColor]::Gray)
+    Write-ResetLog "  [DryRun] Würde ProfileList-Schlüssel bereinigen und C:\Users\$TargetUsername entfernen." "INFO" ([ConsoleColor]::Gray)
 }
 
-# 6. Ensure Local User Account Exists & Enforce Standard Privileges
-Write-ResetLog "[Step 5/5] Ensuring local user '$TargetUsername' exists in SAM as an unprivileged user..." "INFO" ([ConsoleColor]::Yellow)
+# 6. Ensure Local User Account Exists & Enforce Standard Privileges & Auto-Logon
+Write-ResetLog "[Schritt 5/6] Konfiguriere Benutzerkonto '$TargetUsername' & automatische Anmeldung..." "INFO" ([ConsoleColor]::Yellow)
 
 if (-not $DryRun) {
+    Write-ResetLog "  -> Überprüfe lokales Benutzerkonto '$TargetUsername'..." "ACTION" ([ConsoleColor]::Gray)
     $usersGroupName = (Get-LocalGroup | Where-Object { $_.SID.Value -eq "S-1-5-32-545" }).Name
     $adminGroupName = (Get-LocalGroup | Where-Object { $_.SID.Value -eq "S-1-5-32-544" }).Name
 
     $localUser = Get-LocalUser -Name $TargetUsername -ErrorAction SilentlyContinue
     if (-not $localUser) {
-        Write-ResetLog "  Creating local user '$TargetUsername'..." "ACTION" ([ConsoleColor]::Green)
+        Write-ResetLog "  -> Erstelle lokales Benutzerkonto '$TargetUsername'..." "ACTION" ([ConsoleColor]::Green)
         New-LocalUser -Name $TargetUsername -Description "Default shared standard user" -NoPassword | Out-Null
     }
 
@@ -224,19 +229,31 @@ if (-not $DryRun) {
     $isAdmin = Get-LocalGroupMember -Group $adminGroupName -ErrorAction SilentlyContinue | Where-Object { $_.Name -like "*\$TargetUsername" }
     if ($isAdmin) {
         Remove-LocalGroupMember -Group $adminGroupName -Member $TargetUsername
-        Write-ResetLog "  [ACTION] Removed administrative privileges from '$TargetUsername'." "WARN" ([ConsoleColor]::Yellow)
+        Write-ResetLog "  -> Entferne Administrator-Berechtigungen von '$TargetUsername'..." "WARN" ([ConsoleColor]::Yellow)
     }
 
-    Write-ResetLog "  [OK] Local user '$TargetUsername' verified (Standard User, Password Never Expires)." "INFO" ([ConsoleColor]::Green)
+    # Configure Autologon for TargetUsername
+    Write-ResetLog "  -> Richte automatische Windows-Anmeldung (Autologon) für '$TargetUsername' ein..." "ACTION" ([ConsoleColor]::Gray)
+    $winlogonKey = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
+    Set-ItemProperty -Path $winlogonKey -Name "AutoAdminLogon" -Value "1" -Type String -Force
+    Set-ItemProperty -Path $winlogonKey -Name "DefaultUserName" -Value $TargetUsername -Type String -Force
+    Set-ItemProperty -Path $winlogonKey -Name "DefaultDomainName" -Value $env:COMPUTERNAME -Type String -Force
+    Set-ItemProperty -Path $winlogonKey -Name "DefaultPassword" -Value "" -Type String -Force
+    Set-ItemProperty -Path $winlogonKey -Name "ForceAutoLogon" -Value "1" -Type String -Force
+    Set-ItemProperty -Path $winlogonKey -Name "LastUsedUsername" -Value $TargetUsername -Type String -Force
+    Remove-ItemProperty -Path $winlogonKey -Name "AutoLogonCount" -ErrorAction SilentlyContinue
+
+    Write-ResetLog "  [OK] Benutzerkonto und automatische Anmeldung erfolgreich konfiguriert." "INFO" ([ConsoleColor]::Green)
 } else {
-    Write-ResetLog "  [DryRun] Would verify local user '$TargetUsername' and enforce membership in Users group." "INFO" ([ConsoleColor]::Gray)
+    Write-ResetLog "  [DryRun] Würde Benutzerkonto '$TargetUsername' und Autologon konfigurieren." "INFO" ([ConsoleColor]::Gray)
 }
 
 # 7. Provisioning Facilities (Scheduled Task, Desktop Shortcut, Legacy Cleanup)
+Write-ResetLog "[Schritt 6/6] Überprüfe Bereitstellung (Aufgabenplanung & Desktop-Verknüpfung)..." "INFO" ([ConsoleColor]::Yellow)
 $scriptPath = if ($PSCommandPath) { $PSCommandPath } else { Join-Path $scriptDir "Reset-CaritasUserProfile.ps1" }
 
 if ($RegisterTask -or $InstallAll) {
-    Write-ResetLog "Configuring Elevated Scheduled Task 'Caritas-ResetUserSession'..." "INFO" ([ConsoleColor]::Yellow)
+    Write-ResetLog "  -> Konfiguriere erhöhte geplante Aufgabe 'Caritas-ResetUserSession'..." "INFO" ([ConsoleColor]::Yellow)
     if (-not $DryRun) {
         $taskName = "Caritas-ResetUserSession"
         $action = New-ScheduledTaskAction -Execute "powershell.exe" `
@@ -244,7 +261,7 @@ if ($RegisterTask -or $InstallAll) {
         $principal = New-ScheduledTaskPrincipal -UserId "NT AUTHORITY\SYSTEM" -LogonType ServiceAccount -RunLevel Highest
         $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
         Register-ScheduledTask -TaskName $taskName -Action $action -Principal $principal -Settings $settings -Force | Out-Null
-        Write-ResetLog "  [SUCCESS] Scheduled Task '$taskName' registered under NT AUTHORITY\SYSTEM." "ACTION" ([ConsoleColor]::Green)
+        Write-ResetLog "  [OK] Geplante Aufgabe '$taskName' erfolgreich unter SYSTEM registriert." "ACTION" ([ConsoleColor]::Green)
 
         # Grant Builtin\Users execute rights so standard patrons can trigger the reset via shortcut
         try {
@@ -255,7 +272,7 @@ if ($RegisterTask -or $InstallAll) {
             $currentSddl = $taskObj.GetSecurityDescriptor(4)
             if ($currentSddl -notmatch ";;;BU\)" -and $currentSddl -notmatch "0x12019f;;;BU") {
                 $taskObj.SetSecurityDescriptor($currentSddl + "(A;;0x12019f;;;BU)", 0)
-                Write-ResetLog "  [SUCCESS] Granted Task Scheduler execute permissions to Builtin\Users." "ACTION" ([ConsoleColor]::Green)
+                Write-ResetLog "  [OK] Ausführungsberechtigungen für Builtin\Users vergeben." "ACTION" ([ConsoleColor]::Green)
             }
         } catch {
             Write-ResetLog "  Notice: Task COM security descriptor update: $_" "WARN" ([ConsoleColor]::DarkGray)
@@ -266,13 +283,13 @@ if ($RegisterTask -or $InstallAll) {
             & icacls.exe $taskFilePath /grant "*S-1-5-32-545:(RX)" /Q | Out-Null
         }
     } else {
-        Write-ResetLog "  [DryRun] Would register Scheduled Task 'Caritas-ResetUserSession' with unprivileged execute rights." "INFO" ([ConsoleColor]::Gray)
+        Write-ResetLog "  [DryRun] Würde geplante Aufgabe 'Caritas-ResetUserSession' registrieren." "INFO" ([ConsoleColor]::Gray)
     }
 }
 
 if ($CreateDesktopShortcut -or $InstallAll) {
     $shortcutFileName = "Sitzung zur$([char]0x00FC)cksetzen.lnk"
-    Write-ResetLog "Creating Public Desktop Shortcut '$shortcutFileName'..." "INFO" ([ConsoleColor]::Yellow)
+    Write-ResetLog "  -> Erstelle öffentliche Desktop-Verknüpfung '$shortcutFileName'..." "INFO" ([ConsoleColor]::Yellow)
     if (-not $DryRun) {
         $publicDesktop = [Environment]::GetFolderPath("CommonDesktopDirectory")
         # Remove any previously misencoded shortcuts
@@ -287,25 +304,27 @@ if ($CreateDesktopShortcut -or $InstallAll) {
         $shortcut.Description = "Setzt das Benutzerkonto '$TargetUsername' auf den sauberen Ausgangszustand zur$([char]0x00FC)ck."
         $shortcut.WorkingDirectory = "C:\Windows\System32"
         $shortcut.Save()
-        Write-ResetLog "  [SUCCESS] Shortcut deployed to '$shortcutPath'." "ACTION" ([ConsoleColor]::Green)
+        Write-ResetLog "  [OK] Desktop-Verknüpfung unter '$shortcutPath' bereitgestellt." "ACTION" ([ConsoleColor]::Green)
     } else {
-        Write-ResetLog "  [DryRun] Would create desktop shortcut '$shortcutFileName'." "INFO" ([ConsoleColor]::Gray)
+        Write-ResetLog "  [DryRun] Würde Desktop-Verknüpfung '$shortcutFileName' erstellen." "INFO" ([ConsoleColor]::Gray)
     }
+} else {
+    Write-ResetLog "  -> Bereitstellung bereits abgeschlossen." "ACTION" ([ConsoleColor]::Gray)
 }
 
 # 8. Decommission Legacy Boot-Time Wipe Task (Enforce On-Demand Reset Only)
 if (-not $DryRun) {
     $legacyBootTask = Get-ScheduledTask -TaskName "Caritas-ResetUserOnBoot" -ErrorAction SilentlyContinue
     if ($legacyBootTask) {
-        Write-ResetLog "Decommissioning legacy boot-time reset task 'Caritas-ResetUserOnBoot'..." "ACTION" ([ConsoleColor]::Yellow)
+        Write-ResetLog "  -> Entferne alte Boot-Reset-Aufgabe 'Caritas-ResetUserOnBoot'..." "ACTION" ([ConsoleColor]::Yellow)
         Unregister-ScheduledTask -TaskName "Caritas-ResetUserOnBoot" -Confirm:$false -ErrorAction SilentlyContinue
-        Write-ResetLog "  [SUCCESS] Legacy boot-time task unregistered. Resets are strictly on-demand." "ACTION" ([ConsoleColor]::Green)
+        Write-ResetLog "  [OK] Alte Boot-Aufgabe deinstalliert." "ACTION" ([ConsoleColor]::Green)
     }
 }
 
 Write-ResetLog "==========================================================" "DONE" ([ConsoleColor]::Cyan)
-Write-ResetLog "User profile reset operations finished successfully." "DONE" ([ConsoleColor]::Cyan)
-Write-ResetLog "Audit log: $logFile" "DONE" ([ConsoleColor]::White)
+Write-ResetLog "Bereinigung und Zurücksetzung erfolgreich abgeschlossen." "DONE" ([ConsoleColor]::Cyan)
+Write-ResetLog "Protokolldatei: $logFile" "DONE" ([ConsoleColor]::White)
 
 if ($RebootAfterReset -and -not $DryRun) {
     Write-ResetLog "Initiating system reboot in 5 seconds..." "ACTION" ([ConsoleColor]::Yellow)

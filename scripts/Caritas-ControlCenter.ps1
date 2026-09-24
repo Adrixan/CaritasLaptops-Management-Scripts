@@ -78,6 +78,22 @@ function Get-LocalVersion {
 }
 
 # 2. Fast-Fail Self-Update Check (2s Timeout)
+function Test-IsNewerVersion {
+    param([string]$LocalVersion, [string]$RemoteVersion)
+    try {
+        $cleanLocal = ($LocalVersion -replace '[^0-9\.]', '').Trim('.')
+        $cleanRemote = ($RemoteVersion -replace '[^0-9\.]', '').Trim('.')
+        if (-not $cleanLocal -or -not $cleanRemote) { return $false }
+        while (($cleanLocal.Split('.').Count) -lt 2) { $cleanLocal += ".0" }
+        while (($cleanRemote.Split('.').Count) -lt 2) { $cleanRemote += ".0" }
+        $vLocal = [System.Version]$cleanLocal
+        $vRemote = [System.Version]$cleanRemote
+        return ($vRemote -gt $vLocal)
+    } catch {
+        return $false
+    }
+}
+
 function Check-ForUpdates {
     param([switch]$Interactive)
     $localVer = Get-LocalVersion
@@ -91,7 +107,7 @@ function Check-ForUpdates {
         [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
         $remoteMeta = Invoke-RestMethod -Uri $remoteVersionUrl -TimeoutSec 3 -UseBasicParsing -ErrorAction Stop
 
-        if ($remoteMeta.version -and ($remoteMeta.version -ne $localVer)) {
+        if ($remoteMeta.version -and (Test-IsNewerVersion -LocalVersion $localVer -RemoteVersion $remoteMeta.version)) {
             Write-Host "`n[UPDATE VERFÜGBAR] Version $($remoteMeta.version) ist verfügbar (Lokal: $localVer)!" -ForegroundColor Yellow
             Write-CCLog "Update available: local=$localVer, remote=$($remoteMeta.version)"
             if ($Interactive) {
@@ -198,19 +214,19 @@ function Invoke-MasterOnboarding {
     $startTime = Get-Date
     Write-CCLog "Starting Master Onboarding routine"
 
-    Write-Host "`n>>> [1/5] Synchronisiere Software & installiere Updates..." -ForegroundColor Yellow
+    Write-Host "`n[Schritt 1/5] Synchronisiere Software & installiere Updates..." -ForegroundColor Yellow
     & "$scriptDir\Sync-CaritasSoftware.ps1"
 
-    Write-Host "`n>>> [2/5] Wende System-Hardening & Energie-Richtlinien an..." -ForegroundColor Yellow
+    Write-Host "`n[Schritt 2/5] Wende System-Hardening & Energie-Richtlinien an..." -ForegroundColor Yellow
     & "$scriptDir\Configure-CaritasHardening.ps1"
 
-    Write-Host "`n>>> [3/5] Richte Standard-Programme & Werbeblocker ein..." -ForegroundColor Yellow
+    Write-Host "`n[Schritt 3/5] Richte Standard-Programme & Werbeblocker ein..." -ForegroundColor Yellow
     & "$scriptDir\Configure-CaritasDefaults.ps1"
 
-    Write-Host "`n>>> [4/5] Richte Datenschutz, USB-Sperre & Speicher-Wartung ein..." -ForegroundColor Yellow
+    Write-Host "`n[Schritt 4/5] Richte Datenschutz, USB-Sperre & Speicher-Wartung ein..." -ForegroundColor Yellow
     & "$scriptDir\Configure-CaritasMaintenanceAndPrivacy.ps1"
 
-    Write-Host "`n>>> [5/5] Richte Benutzerkonto 'User' & Clean Slate Reset ein..." -ForegroundColor Yellow
+    Write-Host "`n[Schritt 5/5] Richte Benutzerkonto 'User' & Clean Slate Reset ein..." -ForegroundColor Yellow
     & "$scriptDir\Reset-CaritasUserProfile.ps1" -InstallAll
 
     $duration = [Math]::Round(((Get-Date) - $startTime).TotalMinutes, 1)
