@@ -68,20 +68,21 @@ Deploying and maintaining a Caritas laptop requires zero command-line interactio
 ## Control Center Architecture (GUI & TUI)
 
 ### 1. Graphical User Interface (GUI)
-The graphical console [`scripts/Caritas-ControlCenter-GUI.ps1`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/scripts/Caritas-ControlCenter-GUI.ps1) is constructed using native Windows Presentation Framework (WPF) with XAML, requiring no third-party frameworks.
-- Asynchronous Background Execution: Tasks run in decoupled PowerShell runspaces with asynchronous event-driven standard output streaming (`Register-ObjectEvent` on `OutputDataReceived`) and timed process monitoring. This completely eliminates pipe stream deadlocks and guarantees immediate task completion reporting.
-- Live Real-Time Console: Unified stdout and stderr streams render line-by-line into an auto-scrolling monospace terminal viewer with UTF-8 stream decoding.
-- Character Encoding & Localization: All PowerShell modules are standardized on UTF-8 with Byte Order Mark (BOM). Both parent and asynchronous child processes explicitly configure `[Console]::OutputEncoding` and `$OutputEncoding` to UTF-8, ensuring error-free rendering of German umlauts (`ä, ö, ü, Ä, Ö, Ü, ß`) and Unicode interface glyphs in WPF controls, message boxes, and live logs.
-- Immediate Task Interruption: An `[✕ Abbrechen]` button terminates active background runspaces cleanly if an operation was initiated by mistake.
+The graphical console [`scripts/Caritas-ControlCenter-GUI.ps1`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/scripts/Caritas-ControlCenter-GUI.ps1) is constructed using native Windows Presentation Framework (WPF) with XAML:
+- Caritas Corporate Identity: Designed with authentic Caritas branding, featuring Caritas Red (`#C41230`), crisp high-contrast cards, and accessible typography.
+- Progress & Status Dashboard: Raw shell output is replaced by a dedicated user feedback dashboard featuring a prominent real-time progress bar, percentage badge, active step indicator (`Schritt X von Y`), and a live milestone feed.
+- Non-Blocking File-Redirected Runner: Child processes stream output directly to local progress logs with buffered file sharing (`FileShare.ReadWrite`), completely eliminating anonymous pipe deadlocks and handle inheritance issues.
+- Strict Version Comparison: In-place update checks utilize `System.Version` comparison, ensuring update notifications are only presented when a strictly newer release is published on GitHub.
+- Window Scaling & Exit Option: Fully responsive layout with minimum boundary constraints (`960x620`) adapting to any screen resolution, featuring a dedicated `[✕ Beenden]` button in the top navigation bar.
 - Action Cards:
   - **Erst-Einrichtung (All-in-One):** Complete automated onboarding for freshly donated laptops.
   - **Vollständige Wartung:** Full software sync, winget package upgrades, and Windows Update drivers.
   - **Schnelle Software-Wartung:** Winget upgrades and package retention only (skips Windows Update).
-  - **Standard-Programme & Werbeblocker:** App catalog associations and multi-browser uBlock Origin policies.
+  - **Standard-Programme & Werbeblocker:** App catalog associations, multi-browser uBlock Origin policies, and patron auto-logon.
   - **Sicherheits- & Energie-Richtlinien:** Defender PUA, continuous power baseline, and protocol deprecation.
   - **Datenschutz & USB-Sperre:** Browser password saving suppression, USB execution denial, storage hygiene.
-  - **Benutzerkonto 'User' zurücksetzen:** Full clean slate CIM profile reset for the shared patron account.
-  - **Utility Row:** Dedicated buttons to switch to Terminal (TUI) mode, open the local `logs\` directory, clear console output, and force manual update checks.
+  - **Benutzerkonto 'User' zurücksetzen:** Full clean slate CIM profile reset for the shared patron account with 6 detailed progress stages.
+  - **Utility Row:** Dedicated buttons to switch to Terminal (TUI) mode, open the local `logs\` directory, inspect audit logs, and trigger manual update checks.
 
 ### 2. Terminal User Interface (TUI)
 The terminal console [`scripts/Caritas-ControlCenter.ps1`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/scripts/Caritas-ControlCenter.ps1) provides an interactive keyboard-driven menu:

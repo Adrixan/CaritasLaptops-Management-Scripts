@@ -21,6 +21,14 @@
   - Remote investigation on hardware CARITAS-X1-1 revealed that Reset-CaritasUserProfile.ps1 completed successfully in 5 seconds (10:55:54 to 10:55:59).
   - Root cause identified: The GUI runner in scripts/Caritas-ControlCenter-GUI.ps1 used synchronous stream reading while (-not $proc.StandardOutput.EndOfStream) { $proc.StandardOutput.ReadLine() }. In interactive desktop sessions, child processes or console subsystems inherit the stdout pipe's write handle. In .NET, EndOfStream blocks indefinitely until every write handle across the OS is closed, even if the primary process has already terminated.
   - Resolution implemented: Replaced synchronous stream reading with asynchronous event-driven reading (Register-ObjectEvent on OutputDataReceived with BeginOutputReadLine()) paired with timed process polling ($proc.WaitForExit(250)). This eliminates pipe handle deadlocks, guarantees immediate task completion reporting, and cleanly unregisters events upon exit.
+- Major UI & Execution Architecture Redesign (v1.0.6):
+  - Implemented automatic Windows logon (Autologon) for standard account 'User' across setup, defaults, and profile reset scripts.
+  - Rebranded GUI styling to authentic Caritas Corporate Identity (Caritas Red #C41230, accessible white/light gray surfaces, high contrast).
+  - Eliminated raw terminal shell view, replacing it with a Progress & Status Dashboard featuring a prominent progress bar, percentage badge, step counters, and milestone feed.
+  - Enabled scalable layout with min boundaries (960x620) and a dedicated close button.
+  - Fixed in-place update version comparison to strictly check if remote version is newer via System.Version.
+  - Replaced anonymous pipe streaming with file-redirected process execution and shared reading (FileShare.ReadWrite), eliminating all pipe deadlocks.
+  - Enhanced script verbosity with explicit numbered stages ([Schritt 1/6] to [Schritt 6/6]).
 
 ## 2. Active Intent & Delivered Artifacts
 All modules, launchers, and deployment artifacts are authored, validated, and verified on the target hardware (`CARITAS-X1-1`, Windows 11 Pro 64-bit):
@@ -61,22 +69,21 @@ All modules, launchers, and deployment artifacts are authored, validated, and ve
    - Profiles persist across routine reboots, logouts, and shutdowns.
 
 7. **Native Control Centers (GUI & TUI):**
-   - GUI: `scripts/Caritas-ControlCenter-GUI.ps1` (WPF/XAML, runspace concurrency, Bioluminescent Night palette, live terminal viewer).
-   - TUI: `scripts/Caritas-ControlCenter.ps1` (single-key interaction, audit log viewer, unattended switch).
-   - Version metadata bumped to `1.0.5` in `version.json`.
+   - GUI: `scripts/Caritas-ControlCenter-GUI.ps1` (WPF/XAML, Caritas CI with Caritas Red #C41230, live Progress & Status Dashboard, scalable layout, dedicated exit option, non-blocking file-redirected runner).
+   - TUI: `scripts/Caritas-ControlCenter.ps1` (single-key interaction, audit log viewer, unattended switch, strictly newer version update logic).
+   - Version metadata bumped to `1.0.6` in `version.json`.
 
 ## 3. Remote Verification & Hardware Testing
 - Target Host: `10.106.81.35` (`CARITAS-X1-1`), Windows 11 Pro 64-bit Build 26100.
 - Active Administrator: `CaritasAdmin`.
 - Suite Location: `C:\Users\CaritasAdmin\Desktop\CaritasScripts\`.
-- Process Termination: Terminated hanging PID 4396 and background PID 5372 on target laptop.
-- Fresh Deployment: Deployed updated v1.0.5 suite to `C:\Users\CaritasAdmin\Desktop\CaritasScripts\`.
-- Asynchronous Engine Hardware Test: Verified execution of patron reset script via the new event-driven runner on `CARITAS-X1-1`. All 14 lines received in real time, process completed in 5.43 seconds, exit code 0, and status set to Done immediately without hanging.
+- Autologon Registry Verification: Confirmed `AutoAdminLogon = 1`, `DefaultUserName = User`, `ForceAutoLogon = 1` active in `Winlogon`.
+- Live Task Runner Hardware Test: Reset task executed on `CARITAS-X1-1` in 4.36 seconds with all 6 progress steps detected and zero blocking.
+- Fresh Deployment: Deployed updated v1.0.6 suite to `C:\Users\CaritasAdmin\Desktop\CaritasScripts\`.
 - UTF-8 BOM Verification: Confirmed remote PowerShell 5.1 AST parser and XML parser successfully decode all German umlauts (`ä, ö, ü, Ä, Ö, Ü, ß`) and Unicode symbols (`⚡, ★, •, ▶, ✕`) without mojibake.
 - Shortcuts Verified on `CaritasAdmin` Desktop:
   - `Caritas Verwaltung.lnk` -> `C:\Users\CaritasAdmin\Desktop\CaritasScripts\Caritas-Verwaltung.cmd` (Verified `Exists: True`).
   - `Caritas Verwaltung (Terminal).lnk` -> `C:\Users\CaritasAdmin\Desktop\CaritasScripts\Caritas-Verwaltung-TUI.cmd` (Verified `Exists: True`).
-- Launcher Argument Parsing: Remote test of PowerShell array argument construction passed with 6 arguments and exit code 0.
 - Scheduled Tasks Verified:
   - `Caritas-MonthlyMaintenance`: Ready.
   - `Caritas-ResetUserSession`: Ready (pointing to active admin desktop path, unprivileged trigger functional).
@@ -91,4 +98,4 @@ All modules, launchers, and deployment artifacts are authored, validated, and ve
 - Network Management: WinRM port 5985 left active on `CARITAS-X1-1` per user instructions.
 
 ## 4. Pending Decisions & Next Steps
-- Commit repository changes, tag `v1.0.5`, and push to GitHub repository `Adrixan/CaritasLaptops-Management-Scripts` to trigger the automated release workflow.
+- Commit repository changes, tag `v1.0.6`, and push to GitHub repository `Adrixan/CaritasLaptops-Management-Scripts` to trigger the automated release workflow.

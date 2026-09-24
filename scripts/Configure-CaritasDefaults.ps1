@@ -418,7 +418,27 @@ if (-not $SkipExtensions) {
         Write-DefaultsLog "    [DryRun] Would configure Microsoft Edge ExtensionInstallForcelist and adminSettings." "INFO" ([ConsoleColor]::Gray)
     }
 } else {
-    Write-DefaultsLog "[Module 2/2] Browser ad-blocker extensions skipped via -SkipExtensions flag." "INFO" ([ConsoleColor]::Gray)
+    Write-DefaultsLog "[Module 2/3] Browser ad-blocker extensions skipped via -SkipExtensions flag." "INFO" ([ConsoleColor]::Gray)
+}
+
+# 4. Module 3: Automatic Logon for Shared Account 'User'
+Write-DefaultsLog "[Module 3/3] Configuring Automatic Logon (Autologon) for 'User'..." "INFO" ([ConsoleColor]::Yellow)
+if (-not $DryRun) {
+    try {
+        $winlogonKey = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
+        Set-ItemProperty -Path $winlogonKey -Name "AutoAdminLogon" -Value "1" -Type String -Force
+        Set-ItemProperty -Path $winlogonKey -Name "DefaultUserName" -Value "User" -Type String -Force
+        Set-ItemProperty -Path $winlogonKey -Name "DefaultDomainName" -Value $env:COMPUTERNAME -Type String -Force
+        Set-ItemProperty -Path $winlogonKey -Name "DefaultPassword" -Value "" -Type String -Force
+        Set-ItemProperty -Path $winlogonKey -Name "ForceAutoLogon" -Value "1" -Type String -Force
+        Set-ItemProperty -Path $winlogonKey -Name "LastUsedUsername" -Value "User" -Type String -Force
+        Remove-ItemProperty -Path $winlogonKey -Name "AutoLogonCount" -ErrorAction SilentlyContinue
+        Write-DefaultsLog "  [OK] Automatic logon active: System will boot directly into 'User' desktop." "ACTION" ([ConsoleColor]::Green)
+    } catch {
+        Write-DefaultsLog "  Warning configuring autologon: $_" "WARN" ([ConsoleColor]::Yellow)
+    }
+} else {
+    Write-DefaultsLog "  [DryRun] Would configure Winlogon AutoAdminLogon=1 for 'User'." "INFO" ([ConsoleColor]::Gray)
 }
 
 Write-DefaultsLog "==========================================================" "DONE" ([ConsoleColor]::Cyan)
