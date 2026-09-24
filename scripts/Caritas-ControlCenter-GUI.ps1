@@ -84,6 +84,7 @@ function Get-LocalVersion {
 # 4. Asynchronous Task Execution Engine
 $global:activeProcess = $null
 $global:activeRunspace = $null
+$global:activeSyncState = $null
 $global:pollTimer = $null
 
 function Start-AsyncScript {
@@ -93,7 +94,7 @@ function Start-AsyncScript {
         [string]$TaskName = "Vorgang"
     )
 
-    if ($global:activeProcess -and (-not $global:activeProcess.HasExited)) {
+    if ($global:activeSyncState -and (-not $global:activeSyncState.Done)) {
         [System.Windows.MessageBox]::Show(
             "Ein anderer Vorgang wird derzeit noch ausgeführt. Bitte warten Sie, bis dieser abgeschlossen ist.",
             "Vorgang aktiv",
@@ -112,7 +113,9 @@ function Start-AsyncScript {
         Done = $false
         ExitCode = 0
         ProcessId = 0
+        Cancelled = $false
     })
+    $global:activeSyncState = $syncState
 
     $runspace = [powershell]::Create()
     $null = $runspace.AddScript({
@@ -129,13 +132,26 @@ function Start-AsyncScript {
             $proc = [System.Diagnostics.Process]::Start($psi)
             $sync.ProcessId = $proc.Id
 
-            while (-not $proc.StandardOutput.EndOfStream) {
-                $line = $proc.StandardOutput.ReadLine()
-                if ($line -ne $null) {
-                    $sync.Queue.Enqueue($line)
+            $action = {
+                param($sender, $e)
+                if ($e.Data -ne $null) {
+                    $sync.Queue.Enqueue($e.Data)
                 }
             }
-            $proc.WaitForExit()
+            $proc.EnableRaisingEvents = $true
+            $reg = Register-ObjectEvent -InputObject $proc -EventName OutputDataReceived -Action $action
+            $proc.BeginOutputReadLine()
+
+            while (-not $proc.WaitForExit(250)) {
+                if ($sync.Cancelled) {
+                    try { $proc.Kill() } catch {}
+                    break
+                }
+            }
+
+            try { $proc.CancelOutputRead() } catch {}
+            try { Unregister-Event -SourceIdentifier $reg.Name -ErrorAction SilentlyContinue } catch {}
+
             $sync.ExitCode = $proc.ExitCode
         } catch {
             $sync.Queue.Enqueue("[FEHLER] Prozessausführung fehlgeschlagen: $_")
@@ -191,6 +207,17 @@ function Start-AsyncScript {
 }
 
 function Stop-ActiveScript {
+    if ($global:activeSyncState) {
+        $global:activeSyncState.Cancelled = $true
+        if ($global:activeSyncState.ProcessId -gt 0) {
+            try {
+                $p = [System.Diagnostics.Process]::GetProcessById($global:activeSyncState.ProcessId)
+                if (-not $p.HasExited) {
+                    $p.Kill()
+                }
+            } catch {}
+        }
+    }
     if ($global:activeRunspace) {
         Append-LogLine "`r`n[ABBRUCH] Abbruch durch Benutzer angefordert...`r`n"
         Write-CCLog "Task canceled by user" "WARN"
