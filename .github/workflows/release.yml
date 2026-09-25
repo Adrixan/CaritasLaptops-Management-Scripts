@@ -22,9 +22,10 @@ jobs:
           cp scripts/*.ps1 build/CaritasScripts/scripts/
           cp setup/*.ps1 build/CaritasScripts/setup/
           cp setup/*.cmd build/CaritasScripts/setup/ 2>/dev/null || true
+          cp setup/*.xml build/CaritasScripts/setup/ 2>/dev/null || true
           cp version.json build/CaritasScripts/
           cp version.json build/CaritasScripts/config/
-          cp README.md software-inventory*.md build/CaritasScripts/
+          cp README.md HANDBUCH.* software-inventory*.md build/CaritasScripts/ 2>/dev/null || true
           cd build && zip -r ../CaritasScripts.zip . && cd ..
           sha256sum CaritasScripts.zip > CaritasScripts.zip.sha256
           echo "Generated SHA256 checksum:"
@@ -37,4 +38,5 @@ jobs:
           files: |
             CaritasScripts.zip
             CaritasScripts.zip.sha256
+            HANDBUCH.pdf
           generate_release_notes: true
