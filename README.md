@@ -120,22 +120,24 @@ The script [`scripts/Reset-CaritasUserProfile.ps1`](file:///home/Adrixan/code/Ca
 - Unprivileged Patron Trigger: Deploys a shortcut (`Sitzung zurücksetzen.lnk`) to `C:\Users\Public\Desktop` allowing patrons or volunteers to initiate an immediate profile wipe without administrative credentials.
 - SYSTEM Task Delegation: Executes via an elevated Windows Scheduled Task (`Caritas-ResetUserSession`) running under `NT AUTHORITY\SYSTEM` with explicit execute permissions granted to `Builtin\Users`.
 - Strict On-Demand Execution: Resets are exclusively triggered on demand, either by clicking the desktop shortcut or through the administrator Control Center. Profiles are intentionally never purged automatically on reboot, shutdown, or logout to safeguard patron work across routine restarts.
-- Automatic Logon & Password: Enforces automatic Windows console logon for `User` with standard password `Caritas2412!` and Winlogon credentials (`AutoAdminLogon = 1`, `DefaultPassword = Caritas2412!`, `ForceAutoLogon = 1`). Reset operations automatically re-synchronize local account password and Winlogon registry keys.
+- Automatic Logon & Password: Enforces automatic Windows console logon for `User` with standard password `Caritas2412!` and Winlogon credentials (`AutoAdminLogon = 1`, `DefaultPassword = Caritas2412!`). Omits `ForceAutoLogon` to preserve standard workstation locking (`Win+L`) functionality without returning to the desktop unprompted. Reset operations automatically re-synchronize local account password and Winlogon registry keys.
 - Cloud Identity Lockdown: Enforces `NoConnectedUser = 3` (blocks Microsoft Account linking), `DisableFileSyncNGSC = 1` (disables OneDrive storage and background sync), and `DisableSettingSync = 2` (prevents settings synchronization).
 - Logging: Recorded to `logs\UserReset.log`.
 
-### 4. Default Applications & Ad-Blocker Automation
-The script [`scripts/Configure-CaritasDefaults.ps1`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/scripts/Configure-CaritasDefaults.ps1) establishes system-wide associations and web filtering:
+### 4. Default Applications, Web Search & Ad-Blocker Automation
+The script [`scripts/Configure-CaritasDefaults.ps1`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/scripts/Configure-CaritasDefaults.ps1) establishes system-wide associations, search defaults, taskbar pins, and web filtering:
 - Protocol & Extension Catalog: Compiles an OEM association catalog mapping Mozilla Firefox for web and PDF viewing, VLC Media Player for all audio/video formats, Microsoft Office for proprietary formats, LibreOffice for OpenDocument formats, and 7-Zip for compressed archives.
 - Live DISM Import: Applies associations into the active system image via `dism.exe /Online /Import-DefaultAppAssociations` and enforces `DefaultAssociationsConfiguration` via Group Policy.
-- Firefox Pre-Configuration: Deploys locked enterprise policies in `distribution\policies.json` and HKLM registry to completely eliminate onboarding wizards (`about:welcome`), default browser checks, and profile import dialogs. Scrubs autostart `Run` registry entries across all user hives to prevent Firefox from launching automatically on system logon.
+- Brave Search Engine Default: Enforces Brave Search (`https://search.brave.com`) as the locked home page, startup page, and new tab page across Mozilla Firefox, Google Chrome, and Microsoft Edge.
+- Firefox Pre-Configuration: Deploys locked enterprise policies in `distribution\policies.json`, autoconfig `firefox.cfg`, and HKLM registry to completely eliminate onboarding wizards (`about:welcome`), Terms of Use prompts (`SkipTermsOfUse`), default browser checks, and profile import dialogs. Scrubs autostart `Run` registry entries across all user hives to prevent Firefox from launching automatically on system logon.
 - Multi-Browser Ad-Blocker: Force-installs uBlock Origin across Mozilla Firefox, Google Chrome, and Microsoft Edge via enterprise policies.
 - Curated Filter Lists: Pre-configures EasyList, EasyPrivacy, Malware protection (URLhaus), EasyList Germany (`DEU-0`) for regional websites, and EasyList Cookie / uBlock Annoyances to automatically suppress intrusive cookie consent banners.
+- Standard Taskbar Layout: Provisions `LayoutModification.xml` with `PinListPlacement="Replace"` to ensure standard taskbar pinning across new and existing profiles. Pinned applications include File Explorer, Firefox, Word, Excel, and PowerPoint, while Microsoft Edge, Microsoft Store, and Outlook pins are removed.
 - Logging: Recorded to `logs\Defaults.log`.
 
 ### 5. Maintenance, Browser Privacy & USB Lockdown
 The script [`scripts/Configure-CaritasMaintenanceAndPrivacy.ps1`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/scripts/Configure-CaritasMaintenanceAndPrivacy.ps1) provides ongoing hygiene:
-- Browser Credential Defense: Disables password manager prompts, credit card autofill, and address caching across Firefox, Chrome, and Edge. Suppresses promotional news feeds and telemetry.
+- Browser Credential Defense: Disables password manager prompts, credit card autofill, and address caching across Firefox, Chrome, and Edge. Suppresses promotional news feeds and telemetry, locking search defaults to Brave Search.
 - Removable Media Execution Denial: Enforces `Deny_Execute = 1` on removable storage devices (`{53f5630d-b6bf-11d0-94f2-00a0c91efb8b}`). Blocks `.exe`, `.bat`, and scripts from executing from USB thumb drives while retaining read/write access for documents and media.
 - Public Desktop Hygiene: Purges dead or orphaned `.lnk` shortcuts whose target binaries were removed.
 - Storage Sense & Maintenance Task: Activates Windows Storage Sense and registers an automated monthly task (`Caritas-MonthlyMaintenance`) running DISM component store cleanup (`dism /StartComponentCleanup`).

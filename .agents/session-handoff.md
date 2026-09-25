@@ -14,90 +14,75 @@
   - Repaired desktop shortcut execution by refactoring batch invocation to pass PowerShell array arguments `@('-Sta', '-NoProfile', ...)`, targeting active administrator desktops.
 - Character Encoding & Umlaut Resolution:
   - User reported character encoding issues regarding German umlauts inside the GUI of Caritas Verwaltung.
-  - Root cause was Windows PowerShell 5.1 interpreting UTF-8 `.ps1` files lacking a Byte Order Mark (BOM) as ANSI (Windows-1252), causing all multibyte German umlauts (`ä, ö, ü, Ä, Ö, Ü, ß`) and Unicode symbols (`⚡, ★, •, ▶, ✕`) to be read as mojibake (`Ã¤, Ã¶, Ã¼, â¶, â`).
-  - Child asynchronous runspaces also defaulted to system OEM encoding rather than UTF-8 when streaming process output.
+  - Root cause was Windows PowerShell 5.1 interpreting UTF-8 `.ps1` files lacking a Byte Order Mark (BOM) as ANSI (Windows-1252), causing multibyte German umlauts (`ä, ö, ü, Ä, Ö, Ü, ß`) and Unicode symbols (`⚡, ★, •, ▶, ✕`) to be read as mojibake.
+  - Prepended standard UTF-8 BOM to all `.ps1` files and synchronized stream encoding.
 - GUI Asynchronous Process Runner Deadlock Resolution:
-  - User reported initiating "Sitzung von 'User' zurücksetzen" at 10:55:53 in the GUI, with the task still showing as running after several minutes.
-  - Remote investigation on hardware CARITAS-X1-1 revealed that Reset-CaritasUserProfile.ps1 completed successfully in 5 seconds (10:55:54 to 10:55:59).
-  - Root cause identified: The GUI runner in scripts/Caritas-ControlCenter-GUI.ps1 used synchronous stream reading while (-not $proc.StandardOutput.EndOfStream) { $proc.StandardOutput.ReadLine() }. In interactive desktop sessions, child processes or console subsystems inherit the stdout pipe's write handle. In .NET, EndOfStream blocks indefinitely until every write handle across the OS is closed, even if the primary process has already terminated.
-  - Resolution implemented: Replaced synchronous stream reading with asynchronous event-driven reading (Register-ObjectEvent on OutputDataReceived with BeginOutputReadLine()) paired with timed process polling ($proc.WaitForExit(250)). This eliminates pipe handle deadlocks, guarantees immediate task completion reporting, and cleanly unregisters events upon exit.
+  - Replaced synchronous stream reading with file-redirected process execution and shared reading (`FileShare.ReadWrite`), eliminating pipe handle deadlocks.
 - Major UI & Execution Architecture Redesign (v1.0.6):
   - Implemented automatic Windows logon (Autologon) for standard account 'User' across setup, defaults, and profile reset scripts.
   - Rebranded GUI styling to authentic Caritas Corporate Identity (Caritas Red #C41230, accessible white/light gray surfaces, high contrast).
-  - Eliminated raw terminal shell view, replacing it with a Progress & Status Dashboard featuring a prominent progress bar, percentage badge, step counters, and milestone feed.
-  - Enabled scalable layout with min boundaries (960x620) and a dedicated close button.
+  - Replaced raw terminal shell view with a dedicated Progress & Status Dashboard.
+  - Scalable layout with minimum boundary constraints (960x620) and dedicated exit button.
   - Fixed in-place update version comparison to strictly check if remote version is newer via System.Version.
-  - Replaced anonymous pipe streaming with file-redirected process execution and shared reading (FileShare.ReadWrite), eliminating all pipe deadlocks.
-  - Enhanced script verbosity with explicit numbered stages ([Schritt 1/6] to [Schritt 6/6]).
+  - Enhanced script verbosity with numbered execution stages.
 - Patron Password Synchronization & Discord Eradication (v1.0.7):
-  - Addressed "password is wrong" error when resetting account 'User': synchronized local SAM account password to 'Caritas2412!' and updated Winlogon DefaultPassword across Install-CaritasEnvironment.ps1, Reset-CaritasUserProfile.ps1, and Configure-CaritasDefaults.ps1.
-  - Eradicated Discord and Discord System Helper: identified machine-wide Squirrel installer at C:\ProgramData\SquirrelMachineInstalls\Discord.exe invoked via HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Run on every logon. Built full purge routines into Install-CaritasEnvironment.ps1, Reset-CaritasUserProfile.ps1, and Sync-CaritasSoftware.ps1.
+  - Addressed password mismatch on reset: synchronized local SAM account password to 'Caritas2412!' and updated Winlogon DefaultPassword across all scripts.
+  - Eradicated Discord and Discord System Helper (machine-wide Squirrel installers and autostart Run hooks).
+- Browser Search Engine, Taskbar Layout, Screen Lock & Firefox Suppression (v1.0.8):
+  - Brave Search Engine Default: Set home page, startup page, and new tab page to `https://search.brave.com` across Mozilla Firefox, Google Chrome, and Microsoft Edge via enterprise policies.
+  - Standard Taskbar Layout: Configured `LayoutModification.xml` with `PinListPlacement="Replace"` to pin File Explorer, Firefox, Word, Excel, and PowerPoint for all users, while purging Microsoft Edge, Microsoft Store, and Outlook pins.
+  - Workstation Screen Locking: Resolved issue where locking the workstation (`Win+L`) returned immediately to the desktop. Identified root cause as `ForceAutoLogon = 1` in Winlogon. Removed `ForceAutoLogon` across all scripts while preserving `AutoAdminLogon = 1` for boot auto-login.
+  - Firefox First-Run & Terms of Use Suppression: Configured `SkipTermsOfUse = true`, `DisableFirefoxScreens = true`, `OverrideFirstRunPage = ""`, and autoconfig `firefox.cfg` locking `trailhead.firstrun.branches: nofirstrun-empty`.
+  - Firefox Autostart Lockdown: Configured `WindowsLaunchOnLogin: false`, scrubbed `Mozilla-Firefox*` Run entries across all user and machine hives, and removed background scheduled tasks.
 
 ## 2. Active Intent & Delivered Artifacts
 All modules, launchers, and deployment artifacts are authored, validated, and verified on the target hardware (`CARITAS-X1-1`, Windows 11 Pro 64-bit):
 
-1. **Patron Password Synchronization & Auto-Logon:**
-   - Scripts: `setup/Install-CaritasEnvironment.ps1`, `scripts/Reset-CaritasUserProfile.ps1`, `scripts/Configure-CaritasDefaults.ps1`.
-   - Local SAM user `User` configured with password `Caritas2412!` (`PasswordNeverExpires = $true`).
-   - Winlogon credentials stamped with `AutoAdminLogon = 1`, `DefaultUserName = User`, `DefaultPassword = Caritas2412!`, `ForceAutoLogon = 1`.
-   - Verified active and authenticated via .NET PrincipalContext on `CARITAS-X1-1`.
+- **Brave Search Engine Configuration:**
+  - Firefox: Configured `Homepage.URL = "https://search.brave.com"`, `Locked = true`, `StartPage = "homepage"` in `distribution\policies.json`, `firefox.cfg`, and HKLM registry.
+  - Google Chrome: Configured `HomepageLocation`, `RestoreOnStartup = 4`, `RestoreOnStartupURLs\1`, and `NewTabPageLocation` in `HKLM:\SOFTWARE\Policies\Google\Chrome`.
+  - Microsoft Edge: Configured `HomepageLocation`, `RestoreOnStartup = 4`, `RestoreOnStartupURLs\1`, and `NewTabPageLocation` in `HKLM:\SOFTWARE\Policies\Microsoft\Edge`.
+  - Scripts: `scripts/Configure-CaritasDefaults.ps1`, `scripts/Configure-CaritasMaintenanceAndPrivacy.ps1`.
 
-2. **Discord & Discord System Helper Complete Eradication:**
-   - Scripts: `setup/Install-CaritasEnvironment.ps1`, `scripts/Sync-CaritasSoftware.ps1`, `scripts/Reset-CaritasUserProfile.ps1`.
-   - Eliminates machine-wide installer `C:\ProgramData\SquirrelMachineInstalls\Discord.exe`.
-   - Scrubs autostart `Run` registry keys in `HKLM:\SOFTWARE\WOW6432Node\...` and `HKLM:\SOFTWARE\...`.
-   - Uninstalls per-user installations across `C:\Users\*\AppData\Local\Discord` and `Roaming\discord`.
-   - Scrubs desktop and Start Menu shortcuts across all user profiles and Public.
-   - Verified 0 processes, 0 installer files, and 0 registry keys on `CARITAS-X1-1`.
+- **Standard Taskbar Layout Customization:**
+  - Deployed `C:\Users\Default\AppData\Local\Microsoft\Windows\Shell\LayoutModification.xml` utilizing `<CustomTaskbarLayoutCollection PinListPlacement="Replace">` with File Explorer, Firefox, Word, Excel, and PowerPoint.
+  - Pinned shortcuts copied into `AppData\Roaming\Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar` across all user profiles.
+  - Purged Microsoft Edge, Microsoft Store, Outlook, and Mail shortcuts.
+  - Cleared `Taskband\Favorites` and `FavoritesResolve` cache across all user registry hives.
+  - Scripts: `scripts/Configure-CaritasDefaults.ps1`, `setup/Install-CaritasEnvironment.ps1`, `scripts/Reset-CaritasUserProfile.ps1`.
 
-3. **UTF-8 with Byte Order Mark (BOM) Standardization:**
-   - Files: All 10 PowerShell scripts in `scripts/` and `setup/` prepended with standard 3-byte UTF-8 BOM (`0xEF, 0xBB, 0xBF`).
-   - Guarantees Windows PowerShell 5.1 (`powershell.exe`) and PowerShell 7+ reliably recognize UTF-8 encoding across all Windows language editions.
-   - Eliminates all mojibake in XAML string parsing, WPF Window construction, button labels, cards, text blocks, tooltips, and MessageBox dialogue boxes.
+- **Workstation Lock Screen Restoration:**
+  - Removed `ForceAutoLogon` from `HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon`.
+  - Preserved `AutoAdminLogon = "1"`, `DefaultUserName = "User"`, `DefaultPassword = "Caritas2412!"`.
+  - Machine boots straight to desktop on startup, while manual workstation locking (`Win+L`) remains safely on the lock screen without returning to desktop.
+  - Scripts: `scripts/Configure-CaritasDefaults.ps1`, `setup/Install-CaritasEnvironment.ps1`, `scripts/Reset-CaritasUserProfile.ps1`.
 
-4. **Console & Pipeline UTF-8 Stream Synchronization:**
-   - Script: `scripts/Caritas-ControlCenter-GUI.ps1`, `scripts/Caritas-ControlCenter.ps1`, `setup/Install-CaritasEnvironment.ps1`, and all module scripts.
-   - Configured `[Console]::OutputEncoding = [System.Text.Encoding]::UTF8` and `$OutputEncoding = [System.Text.Encoding]::UTF8` at script initialization.
-   - Asynchronous Engine: Configured `$psi.StandardOutputEncoding = [System.Text.Encoding]::UTF8` in `Start-AsyncScript`, and injected UTF-8 console output encoding into child PowerShell process invocations to guarantee live console output stream decoding without corruption.
-   - Log Writing: Added `-Encoding UTF8` to all `Add-Content` calls in logging functions (`Write-CCLog`, `Write-SyncLog`, `Write-HardeningLog`, `Write-DefaultsLog`, `Write-UserResetLog`, `Write-MaintLog`).
+- **Firefox Welcome Screen & Terms of Use Elimination:**
+  - Configured `SkipTermsOfUse: true`, `DisableFirefoxScreens: true`, `OverrideFirstRunPage: ""`, `OverridePostUpdatePage: ""` in `policies.json`.
+  - Created machine-wide `defaults\pref\autoconfig.js` and `firefox.cfg` locking `trailhead.firstrun.branches: "nofirstrun-empty"`, `trailhead.firstrun.didSeeAboutWelcome: true`, and `browser.aboutwelcome.enabled: false`.
+  - Mirrored `SkipTermsOfUse = 1`, `DisableFirefoxScreens = 1` in `HKLM:\SOFTWARE\Policies\Mozilla\Firefox`.
+  - Scripts: `scripts/Configure-CaritasDefaults.ps1`, `scripts/Configure-CaritasMaintenanceAndPrivacy.ps1`.
 
-5. **OOBE Privacy Setup Suppression & Privacy Defaults:**
-   - Script: `scripts/Configure-CaritasHardening.ps1`
-   - OOBE Suppression: Configured `DisablePrivacyExperience = 1` in `HKLM:\SOFTWARE\Policies\Microsoft\Windows\OOBE`, `HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System`, and `HKLM:\SOFTWARE\Policies\Microsoft\Windows\System`.
-   - Animation & SCOOBE Bypass: Set `EnableFirstLogonAnimation = 0`, `ScoobeSystemSettingEnabled = 0`, `ShowWindowsProvider = 0`, and `RestartApps = 0` (preventing automatic reopening of apps on sign-in).
-   - Strict Sensory & Input Privacy: Set `DisableLocation = 1`, `DisableLocationScripting = 1`, `DisableSensors = 1`, and forced `ConsentStore\location` to `Deny`. Restricted implicit inking and text collection (`AllowInputPersonalization = 0`, `RestrictImplicitInkCollection = 1`, `RestrictImplicitTextCollection = 1`).
-   - Find My Device & Speech: Set `AllowFindMyDevice = 0` and `AllowSpeechModelUpdate = 0`.
-   - Hive Stamping: Automatically stamped privacy acceptance flags and disabled Content Delivery Manager suggestions across `.DEFAULT` and all active user registry hives (`S-1-5-21*`).
-
-6. **Firefox Enterprise Pre-Configuration & Autostart Suppression:**
-   - Scripts: `scripts/Configure-CaritasDefaults.ps1`, `scripts/Configure-CaritasMaintenanceAndPrivacy.ps1`
-   - Enterprise Policies: Deployed `C:\Program Files\Mozilla Firefox\distribution\policies.json` and mirrored HKLM registry policies locking `browser.aboutwelcome.enabled: false`, `trailhead.firstrun.didSeeAboutWelcome: true`, `doh-rollout.doneFirstRun: true`, `OverrideFirstRunPage: ""`, `OverridePostUpdatePage: ""`, `DontCheckDefaultBrowser: 1`, `DisableProfileImport: 1`, `DisablePocket: 1`, and `DisableTelemetry: 1`.
-   - Autostart Lockdown: Locked `browser.startup.windowsLaunchOnLogin.enabled: false`. Scrubbed Firefox autostart entries from `Run` keys across HKLM, WOW6432Node, HKCU, and all mounted user hives (`S-1-5-21*`). Disabled Firefox background maintenance scheduled tasks.
-
-7. **Desktop Shortcut Launcher & Quoting Fix:**
-   - Files: `Caritas-Verwaltung.cmd`, `Caritas-Verwaltung-TUI.cmd` (at root and in `setup/`)
-   - Fixed argument escaping by passing a native PowerShell array `@('-Sta', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', '%TARGET_SCRIPT%')`, preventing argument truncation or empty-string parsing.
-   - Updated provisioner `setup/Install-CaritasEnvironment.ps1` to detect active local administrator profiles dynamically and deploy shortcuts to `C:\Users\CaritasAdmin\Desktop`.
-
-8. **Strictly On-Demand Patron Profile Reset:**
-   - Script: `scripts/Reset-CaritasUserProfile.ps1`
-   - Unprivileged Execution Mechanism: Elevated Scheduled Task `Caritas-ResetUserSession` under `NT AUTHORITY\SYSTEM` with security descriptor `(A;;0x12019f;;;BU)` and file ACL `icacls *S-1-5-32-545:(RX)` on the task definition.
-   - Public Desktop Shortcut: `C:\Users\Public\Desktop\Sitzung zurücksetzen.lnk` pointing to `schtasks.exe /run /tn "Caritas-ResetUserSession"`.
-   - Profiles persist across routine reboots, logouts, and shutdowns.
-
-9. **Native Control Centers (GUI & TUI):**
-   - GUI: `scripts/Caritas-ControlCenter-GUI.ps1` (WPF/XAML, Caritas CI with Caritas Red #C41230, live Progress & Status Dashboard, scalable layout, dedicated exit option, non-blocking file-redirected runner).
-   - TUI: `scripts/Caritas-ControlCenter.ps1` (single-key interaction, audit log viewer, unattended switch, strictly newer version update logic).
-   - Version metadata bumped to `1.0.7` in `version.json`.
+- **Firefox Autostart Elimination:**
+  - Configured `WindowsLaunchOnLogin = false` in `policies.json` and locked `browser.startup.windowsLaunchOnLogin.enabled: false` and `browser.startup.windowsLaunchOnLogin.disable: true` in `firefox.cfg`.
+  - Scrubbed `Mozilla-Firefox*` Run keys across all user registry hives and HKLM.
+  - Removed background scheduled tasks.
+  - Scripts: `scripts/Configure-CaritasDefaults.ps1`, `scripts/Configure-CaritasMaintenanceAndPrivacy.ps1`, `scripts/Reset-CaritasUserProfile.ps1`.
 
 ## 3. Remote Verification & Hardware Testing
 - Target Host: `10.106.81.35` (`CARITAS-X1-1`), Windows 11 Pro 64-bit Build 26100.
 - Active Administrator: `CaritasAdmin`.
 - Suite Location: `C:\Users\CaritasAdmin\Desktop\CaritasScripts\`.
-- Autologon & Password Verification: Verified `User` credentials `Caritas2412!` via `System.DirectoryServices.AccountManagement.PrincipalContext` return `Valid: True`. Confirmed `AutoAdminLogon = 1`, `DefaultUserName = User`, `DefaultPassword = Caritas2412!`, `ForceAutoLogon = 1` in `Winlogon`.
-- Discord Eradication Verification: Verified 0 running Discord/DiscordSystemHelper processes, Squirrel machine installer purged, HKLM WOW64 Run key removed, and local user AppData Discord directories purged.
-- Live Reset & Provisioning Execution: Successfully ran `Install-CaritasEnvironment.ps1` and `Reset-CaritasUserProfile.ps1` on physical laptop hardware.
-- UTF-8 BOM Verification: Confirmed remote PowerShell 5.1 AST parser decodes all scripts without errors.
+- All verification assertions passed with 100% compliance:
+  - `FF_Policies_Homepage_URL`: `https://search.brave.com` (Locked: True)
+  - `Chrome_HomepageLocation` & `Edge_HomepageLocation`: `https://search.brave.com` (RestoreOnStartup: 4)
+  - `Default_LayoutModification_Exists`: True (`PinListPlacement="Replace"`, Explorer, Firefox, Word, Excel, PowerPoint)
+  - Taskbar Shortcuts: Edge, Store, Outlook confirmed absent across all user profiles; Explorer, Firefox, Office confirmed present
+  - `Winlogon_ForceAutoLogon`: Empty ($null), `Winlogon_AutoAdminLogon`: 1, `DefaultPassword`: Caritas2412!
+  - `FF_Cfg_AboutWelcome_Disabled`: True, `FF_Cfg_Trailhead_NoFirstRun`: True, `SkipTermsOfUse`: True
+  - `Firefox_Run_Keys_Count`: 0, `Firefox_Scheduled_Tasks_Count`: 0
+  - Live Reset Verification: Executed `Install-CaritasEnvironment.ps1` and `Reset-CaritasUserProfile.ps1` live. Validated account credentials via .NET PrincipalContext and verified lock settings persist without regressions.
 
 ## 4. Pending Decisions & Next Steps
-- Commit repository changes, tag `v1.0.7`, and push to GitHub repository `Adrixan/CaritasLaptops-Management-Scripts` to trigger the automated release workflow.
+- Commit repository changes, tag `v1.0.8`, and push to GitHub repository `Adrixan/CaritasLaptops-Management-Scripts` to trigger the automated release workflow.
+- Monitor GitHub Actions release build.
