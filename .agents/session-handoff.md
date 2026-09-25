@@ -42,13 +42,18 @@
   - Implemented Candidate 2 (Microsoft Office Silent Activation): Automated detection via `ospp.vbs` and activation using MAK key `9YQNX-W4TVK-74HXJ-YDFX6-QYM2Q` in `setup/Install-CaritasEnvironment.ps1`, `scripts/Sync-CaritasSoftware.ps1`, and `scripts/Configure-CaritasDefaults.ps1`.
   - Implemented Candidate 3 (TeamViewer Unattended Remote Support): Pre-configured registry keys `Security_WinLogin = 2` (Windows authentication for all users) and `Always_Online = 1` with automatic service startup in `setup/Install-CaritasEnvironment.ps1`, `scripts/Sync-CaritasSoftware.ps1`, and `scripts/Configure-CaritasHardening.ps1`.
   - Implemented Candidate 4 (Zero-Touch USB Response File): Created `setup/autounattend.xml` bypassing Windows 11 hardware checks (TPM, CPU, RAM), formatting UEFI/GPT disks, setting `de-AT` locale, creating `CaritasAdmin`, bypassing OOBE privacy screens, and automatically launching into the administrator desktop.
+  - Authored Publication-Quality PDF Edition (`HANDBUCH.pdf`):
+    - Built a standalone, publication-grade A4 PDF manual in authentic Caritas Corporate Identity (Caritas Red #C41230, Inter / Liberation Sans, DejaVu Sans Mono, custom table column widths, and header/footer with page counters).
+    - Deployed `setup/build-pdf.py` for reproducible compilation via Typst.
+    - Updated release packaging workflow `.github/workflows/release.yml` to bundle and attach `HANDBUCH.pdf`.
+    - Deployed `HANDBUCH.pdf` directly to test machine `CARITAS-X1-1` and uploaded asset to GitHub release `v1.0.9`.
 
 ## 2. Active Intent & Delivered Artifacts
 All modules, launchers, and deployment artifacts are authored, validated, and verified on the target hardware (`CARITAS-X1-1`, Windows 11 Pro 64-bit):
 
 - **Handbook Documentation:**
-  - File: `HANDBUCH.md` in repository root.
-  - Contains full instructions for technician onboarding, zero-touch USB installation, BIOS configuration, 1-click suite execution, Office volume licensing, unattended TeamViewer setup, patron profile resets, and update management.
+  - Files: [`HANDBUCH.md`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/HANDBUCH.md), [`HANDBUCH.pdf`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/HANDBUCH.pdf), and [`setup/build-pdf.py`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/setup/build-pdf.py).
+  - Contains full instructions for technician onboarding, zero-touch USB installation, BIOS configuration, 1-click suite execution, Office volume licensing, unattended TeamViewer setup, patron profile resets, and update management. Available both as Markdown and executive-ready A4 PDF.
 
 - **Zero-Touch USB Response File:**
   - File: `setup/autounattend.xml`.
