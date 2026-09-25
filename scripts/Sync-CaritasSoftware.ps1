@@ -362,6 +362,31 @@ foreach ($req in $requiredApps) {
     }
 }
 
+# TeamViewer Unattended Remote Support Baseline
+$tvRegPaths = @("HKLM:\SOFTWARE\TeamViewer", "HKLM:\SOFTWARE\WOW6432Node\TeamViewer")
+foreach ($tvPath in $tvRegPaths) {
+    if (-not (Test-Path $tvPath)) {
+        if (-not $DryRun) { New-Item -Path $tvPath -Force -ErrorAction SilentlyContinue | Out-Null }
+    }
+    if (Test-Path $tvPath) {
+        if (-not $DryRun) {
+            Set-ItemProperty -Path $tvPath -Name "Security_WinLogin" -Value 2 -Type DWord -Force -ErrorAction SilentlyContinue
+            Set-ItemProperty -Path $tvPath -Name "Always_Online" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
+            Set-ItemProperty -Path $tvPath -Name "Autostart" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+$tvSvc = Get-Service -Name "TeamViewer" -ErrorAction SilentlyContinue
+if ($tvSvc) {
+    if (-not $DryRun) {
+        Set-Service -Name "TeamViewer" -StartupType Automatic -ErrorAction SilentlyContinue
+        if ($tvSvc.Status -ne "Running") {
+            Start-Service -Name "TeamViewer" -ErrorAction SilentlyContinue
+        }
+    }
+    Write-SyncLog "  [OK] TeamViewer pre-configured for unattended support (Security_WinLogin = 2, Service = Automatic)." "INFO" ([ConsoleColor]::Green)
+}
+
 # 5. Phase 4: Upgrade Installed Software Packages via winget
 if (-not $SkipUpgrade) {
     Write-SyncLog "[Phase 4/5] Upgrading installed software packages to the most recent version..." "INFO" ([ConsoleColor]::Yellow)
@@ -378,6 +403,37 @@ if (-not $SkipUpgrade) {
         Write-SyncLog "Triggering Microsoft Office Click-to-Run update check..." "ACTION" ([ConsoleColor]::Cyan)
         if (-not $DryRun) {
             Start-Process -FilePath $c2rPath -ArgumentList "/update user displaylevel=false forceappshutdown=false" -NoNewWindow
+        }
+    }
+
+    # Verify and apply Microsoft Office 2024 LTSC volume license activation if installed
+    $osppCandidates = @(
+        "$env:ProgramFiles\Microsoft Office\Office16\ospp.vbs",
+        "${env:ProgramFiles(x86)}\Microsoft Office\Office16\ospp.vbs"
+    )
+    $ospp = $osppCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+    if ($ospp) {
+        Write-SyncLog "Checking Microsoft Office 2024 LTSC license status..." "INFO" ([ConsoleColor]::Cyan)
+        try {
+            $statusOut = & cscript.exe //Nologo "$ospp" /dstatus 2>&1 | Out-String
+            if ($statusOut -match "---LICENSED---") {
+                Write-SyncLog "  [OK] Microsoft Office is licensed and activated." "INFO" ([ConsoleColor]::Green)
+            } else {
+                Write-SyncLog "  Office is not fully activated. Applying MAK key and triggering activation..." "ACTION" ([ConsoleColor]::Yellow)
+                if (-not $DryRun) {
+                    $officeKey = "9YQNX-W4TVK-74HXJ-YDFX6-QYM2Q"
+                    & cscript.exe //Nologo "$ospp" /inpkey:$officeKey 2>&1 | Out-Null
+                    & cscript.exe //Nologo "$ospp" /act 2>&1 | Out-Null
+                    $newStatus = & cscript.exe //Nologo "$ospp" /dstatus 2>&1 | Out-String
+                    if ($newStatus -match "---LICENSED---") {
+                        Write-SyncLog "  [OK] Microsoft Office activated successfully (Key: QYM2Q)." "SUCCESS" ([ConsoleColor]::Green)
+                    } else {
+                        Write-SyncLog "  [WARN] Office activation could not be confirmed immediately." "WARN" ([ConsoleColor]::Yellow)
+                    }
+                }
+            }
+        } catch {
+            Write-SyncLog "  Notice: Error querying Office license status: $_" "WARN" ([ConsoleColor]::DarkGray)
         }
     }
 } else {

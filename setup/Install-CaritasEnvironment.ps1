@@ -271,6 +271,102 @@ try {
     Write-Host "[-] Fehler beim Konfigurieren des Taskleisten-Layouts: $_" -ForegroundColor Yellow
 }
 
+# 9. Automated BIOS Hostname Assignment
+Write-Host "[*] Prüfe Hardware-Seriennummer und Hostnamen-Zuordnung..." -ForegroundColor Cyan
+try {
+    $deviceMap = @{
+        "PF1WVA11"               = "Caritas-T480-1"
+        "PF0YG5PW"               = "Caritas-X1-1"
+        "NXEG9EV00105209C977600" = "Caritas-Acer-1"
+        "NXEG9EV00105209CB17600" = "Caritas-Acer-2"
+        "NXEG9EV00105209CB47600" = "Caritas-Acer-3"
+        "NXEG9EV00105209CBB7600" = "Caritas-Acer-4"
+        "5CG6388SJG"             = "Caritas-HP-1"
+        "5CG6502VZQ"             = "Caritas-HP-2"
+    }
+
+    $biosSerial = (Get-CimInstance Win32_BIOS -ErrorAction SilentlyContinue).SerialNumber
+    if ($biosSerial) { $biosSerial = $biosSerial.Trim() }
+
+    if ($biosSerial -and $deviceMap.ContainsKey($biosSerial)) {
+        $targetHost = $deviceMap[$biosSerial]
+        if ($env:COMPUTERNAME -ine $targetHost) {
+            Rename-Computer -NewName $targetHost -Force -ErrorAction SilentlyContinue
+            Write-Host "[+] Computername basierend auf BIOS-Seriennummer ($biosSerial) auf '$targetHost' gesetzt (wird nach Neustart wirksam)." -ForegroundColor Green
+        } else {
+            Write-Host "[OK] Computername entspricht bereits der BIOS-Seriennummer ($targetHost)." -ForegroundColor Green
+        }
+    } else {
+        Write-Host "[*] Seriennummer '$biosSerial' nicht in Zuweisungstabelle oder nicht lesbar. Computername ($env:COMPUTERNAME) unverändert." -ForegroundColor Gray
+    }
+} catch {
+    Write-Host "[-] Fehler bei der BIOS-Hostnamen-Zuweisung: $_" -ForegroundColor Yellow
+}
+
+# 10. Microsoft Office 2024 LTSC Silent Activation
+Write-Host "[*] Prüfe Microsoft Office 2024 LTSC Aktivierungsstatus..." -ForegroundColor Cyan
+try {
+    $officeKey = "9YQNX-W4TVK-74HXJ-YDFX6-QYM2Q"
+    $osppCandidates = @(
+        "$env:ProgramFiles\Microsoft Office\Office16\ospp.vbs",
+        "${env:ProgramFiles(x86)}\Microsoft Office\Office16\ospp.vbs"
+    )
+    $ospp = $osppCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+
+    if ($ospp) {
+        $dstatus = & cscript.exe //Nologo "$ospp" /dstatus 2>&1 | Out-String
+        if ($dstatus -match "---LICENSED---") {
+            Write-Host "[OK] Microsoft Office ist bereits lizenziert und aktiviert." -ForegroundColor Green
+        } else {
+            Write-Host "[*] Installiere Volumenlizenzschlüssel für Office..." -ForegroundColor Yellow
+            & cscript.exe //Nologo "$ospp" /inpkey:$officeKey 2>&1 | Out-Null
+            Write-Host "[*] Aktiviere Office online..." -ForegroundColor Yellow
+            & cscript.exe //Nologo "$ospp" /act 2>&1 | Out-Null
+            $afterStatus = & cscript.exe //Nologo "$ospp" /dstatus 2>&1 | Out-String
+            if ($afterStatus -match "---LICENSED---") {
+                Write-Host "[+] Microsoft Office erfolgreich aktiviert (MAK-Schlüssel QYM2Q)." -ForegroundColor Green
+            } else {
+                Write-Host "[-] Office-Aktivierung konnte nicht unmittelbar bestätigt werden." -ForegroundColor Yellow
+            }
+        }
+    } else {
+        Write-Host "[*] Microsoft Office 16/2024 nicht installiert (ospp.vbs nicht vorhanden)." -ForegroundColor Gray
+    }
+} catch {
+    Write-Host "[-] Fehler bei der Office-Aktivierung: $_" -ForegroundColor Yellow
+}
+
+# 11. TeamViewer Remote Administration Configuration
+Write-Host "[*] Konfiguriere TeamViewer für unbeaufsichtigten Zugriff..." -ForegroundColor Cyan
+try {
+    $tvRegPaths = @(
+        "HKLM:\SOFTWARE\TeamViewer",
+        "HKLM:\SOFTWARE\WOW6432Node\TeamViewer"
+    )
+    foreach ($tvPath in $tvRegPaths) {
+        if (-not (Test-Path $tvPath)) {
+            New-Item -Path $tvPath -Force -ErrorAction SilentlyContinue | Out-Null
+        }
+        if (Test-Path $tvPath) {
+            Set-ItemProperty -Path $tvPath -Name "Security_WinLogin" -Value 2 -Type DWord -Force -ErrorAction SilentlyContinue
+            Set-ItemProperty -Path $tvPath -Name "Always_Online" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
+            Set-ItemProperty -Path $tvPath -Name "Autostart" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    $tvService = Get-Service -Name "TeamViewer" -ErrorAction SilentlyContinue
+    if ($tvService) {
+        Set-Service -Name "TeamViewer" -StartupType Automatic -ErrorAction SilentlyContinue
+        if ($tvService.Status -ne "Running") {
+            Start-Service -Name "TeamViewer" -ErrorAction SilentlyContinue
+        }
+        Write-Host "[+] TeamViewer-Dienst auf 'Automatisch' gesetzt und gestartet." -ForegroundColor Green
+    }
+    Write-Host "[+] TeamViewer-Richtlinien konfiguriert (Windows-Authentifizierung aktiv, Autostart aktiv)." -ForegroundColor Green
+} catch {
+    Write-Host "[-] Fehler bei der TeamViewer-Konfiguration: $_" -ForegroundColor Yellow
+}
+
 Write-Host "==============================================================" -ForegroundColor Cyan
 Write-Host "  INITIALISIERUNG ERFOLGREICH ABGESCHLOSSEN!" -ForegroundColor Green
 Write-Host "  Die Verwaltungswerkzeuge sind einsatzbereit." -ForegroundColor Green

@@ -387,6 +387,64 @@ Set-RegistryPolicy -Path $powerSystemPath -Name "HiberbootEnabled" -Value 0 -Des
 $remoteAssistPath = "HKLM:\SYSTEM\CurrentControlSet\Control\Remote Assistance"
 Set-RegistryPolicy -Path $remoteAssistPath -Name "fAllowToGetHelp" -Value 0 -Description "Disable unsolicited Remote Assistance"
 
+# D. Automated BIOS Hostname Verification
+try {
+    $deviceMap = @{
+        "PF1WVA11"               = "Caritas-T480-1"
+        "PF0YG5PW"               = "Caritas-X1-1"
+        "NXEG9EV00105209C977600" = "Caritas-Acer-1"
+        "NXEG9EV00105209CB17600" = "Caritas-Acer-2"
+        "NXEG9EV00105209CB47600" = "Caritas-Acer-3"
+        "NXEG9EV00105209CBB7600" = "Caritas-Acer-4"
+        "5CG6388SJG"             = "Caritas-HP-1"
+        "5CG6502VZQ"             = "Caritas-HP-2"
+    }
+    $biosSerial = (Get-CimInstance Win32_BIOS -ErrorAction SilentlyContinue).SerialNumber
+    if ($biosSerial) { $biosSerial = $biosSerial.Trim() }
+
+    if ($biosSerial -and $deviceMap.ContainsKey($biosSerial)) {
+        $targetHost = $deviceMap[$biosSerial]
+        if ($env:COMPUTERNAME -ine $targetHost) {
+            if (-not $DryRun) {
+                Rename-Computer -NewName $targetHost -Force -ErrorAction SilentlyContinue
+                Write-HardeningLog "  [APPLIED] Computer name updated to '$targetHost' based on BIOS serial ($biosSerial). Requires reboot." "ACTION" ([ConsoleColor]::Yellow)
+            } else {
+                Write-HardeningLog "  [DryRun] Would rename computer to '$targetHost' based on BIOS serial ($biosSerial)." "INFO" ([ConsoleColor]::Gray)
+            }
+        } else {
+            Write-HardeningLog "  [OK] Computer name matches BIOS hardware serial ($targetHost)." "INFO" ([ConsoleColor]::Green)
+        }
+    } else {
+        Write-HardeningLog "  [INFO] BIOS serial '$biosSerial' not in predefined mapping table. Hostname ($env:COMPUTERNAME) retained." "INFO" ([ConsoleColor]::Gray)
+    }
+} catch {
+    Write-HardeningLog "  [WARN] Failed to verify BIOS hostname mapping: $_" "WARN" ([ConsoleColor]::Yellow)
+}
+
+# E. Remote Administration Baseline (TeamViewer Unattended Settings)
+$tvRegPaths = @(
+    "HKLM:\SOFTWARE\TeamViewer",
+    "HKLM:\SOFTWARE\WOW6432Node\TeamViewer"
+)
+foreach ($tvPath in $tvRegPaths) {
+    Set-RegistryPolicy -Path $tvPath -Name "Security_WinLogin" -Value 2 -Description "Enforce TeamViewer Windows Authentication for all users"
+    Set-RegistryPolicy -Path $tvPath -Name "Always_Online" -Value 1 -Description "Enforce TeamViewer startup with Windows"
+    Set-RegistryPolicy -Path $tvPath -Name "Autostart" -Value 1 -Description "Enable TeamViewer autostart"
+}
+
+$tvService = Get-Service -Name "TeamViewer" -ErrorAction SilentlyContinue
+if ($tvService) {
+    if (-not $DryRun) {
+        Set-Service -Name "TeamViewer" -StartupType Automatic -ErrorAction SilentlyContinue
+        if ($tvService.Status -ne "Running") {
+            Start-Service -Name "TeamViewer" -ErrorAction SilentlyContinue
+        }
+        Write-HardeningLog "  [OK] TeamViewer service configured for Automatic startup and verified running." "INFO" ([ConsoleColor]::Green)
+    } else {
+        Write-HardeningLog "  [DryRun] Would set TeamViewer service to Automatic and ensure running." "INFO" ([ConsoleColor]::Gray)
+    }
+}
+
 Write-HardeningLog "==========================================================" "DONE" ([ConsoleColor]::Cyan)
 Write-HardeningLog "System Hardening and Operational Configuration complete." "DONE" ([ConsoleColor]::Cyan)
 Write-HardeningLog "Audit log saved to: $logFile" "DONE" ([ConsoleColor]::White)

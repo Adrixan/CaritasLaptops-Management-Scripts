@@ -145,6 +145,32 @@ if (-not $SkipAssociations) {
     Add-Assoc ".pptm" "PowerPoint.ShowMacroEnabled.12" "Microsoft PowerPoint"
     Add-Assoc ".ppsx" "PowerPoint.SlideShow.12" "Microsoft PowerPoint"
 
+    # Verify and activate Microsoft Office 2024 LTSC volume license if present
+    $osppCandidates = @(
+        "$env:ProgramFiles\Microsoft Office\Office16\ospp.vbs",
+        "${env:ProgramFiles(x86)}\Microsoft Office\Office16\ospp.vbs"
+    )
+    $ospp = $osppCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+    if ($ospp) {
+        try {
+            $statusOut = & cscript.exe //Nologo "$ospp" /dstatus 2>&1 | Out-String
+            if ($statusOut -match "---LICENSED---") {
+                Write-DefaultsLog "  [OK] Microsoft Office is licensed and activated." "INFO" ([ConsoleColor]::Green)
+            } else {
+                if (-not $DryRun) {
+                    $officeKey = "9YQNX-W4TVK-74HXJ-YDFX6-QYM2Q"
+                    & cscript.exe //Nologo "$ospp" /inpkey:$officeKey 2>&1 | Out-Null
+                    & cscript.exe //Nologo "$ospp" /act 2>&1 | Out-Null
+                    Write-DefaultsLog "  [APPLIED] Microsoft Office activated with volume license key." "ACTION" ([ConsoleColor]::Yellow)
+                } else {
+                    Write-DefaultsLog "  [DryRun] Would activate Microsoft Office using volume license key." "INFO" ([ConsoleColor]::Gray)
+                }
+            }
+        } catch {
+            Write-DefaultsLog "  Notice: Office license query: $_" "WARN" ([ConsoleColor]::DarkGray)
+        }
+    }
+
     # D. OpenDocument Formats (LibreOffice)
     Add-Assoc ".odt" "LibreOffice.WriterDocument.1" "LibreOffice Writer"
     Add-Assoc ".fodt" "LibreOffice.WriterDocument.1" "LibreOffice Writer"

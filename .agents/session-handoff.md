@@ -34,55 +34,53 @@
   - Workstation Screen Locking: Resolved issue where locking the workstation (`Win+L`) returned immediately to the desktop. Identified root cause as `ForceAutoLogon = 1` in Winlogon. Removed `ForceAutoLogon` across all scripts while preserving `AutoAdminLogon = 1` for boot auto-login.
   - Firefox First-Run & Terms of Use Suppression: Configured `SkipTermsOfUse = true`, `DisableFirefoxScreens = true`, `OverrideFirstRunPage = ""`, and autoconfig `firefox.cfg` locking `trailhead.firstrun.branches: nofirstrun-empty`.
   - Firefox Autostart Lockdown: Configured `WindowsLaunchOnLogin: false`, scrubbed `Mozilla-Firefox*` Run entries across all user and machine hives, and removed background scheduled tasks.
+- Fleet Modernization, Handbook & End-to-End Automation (v1.0.9):
+  - Inspected legacy setup instructions from `reference/` (`Handbuch.pdf` and `Handbuch.odt`).
+  - Guaranteed `reference/` is ignored by version control in `.gitignore`.
+  - Authored comprehensive modern manual `HANDBUCH.md` detailing hardware serial table, credentials, BIOS hotkeys, clean OS installation, 1-click suite onboarding, Office activation, TeamViewer, session resets, and in-place updates.
+  - Implemented Candidate 1 (Automated BIOS Hostname Mapping): Hardware serial number lookup (`Win32_BIOS.SerialNumber`) mapped to laptop hostnames (`Caritas-T480-1`, `Caritas-X1-1`, `Caritas-Acer-1..4`, `Caritas-HP-1..2`) with automatic renaming via `Rename-Computer` in `setup/Install-CaritasEnvironment.ps1` and `scripts/Configure-CaritasHardening.ps1`.
+  - Implemented Candidate 2 (Microsoft Office Silent Activation): Automated detection via `ospp.vbs` and activation using MAK key `9YQNX-W4TVK-74HXJ-YDFX6-QYM2Q` in `setup/Install-CaritasEnvironment.ps1`, `scripts/Sync-CaritasSoftware.ps1`, and `scripts/Configure-CaritasDefaults.ps1`.
+  - Implemented Candidate 3 (TeamViewer Unattended Remote Support): Pre-configured registry keys `Security_WinLogin = 2` (Windows authentication for all users) and `Always_Online = 1` with automatic service startup in `setup/Install-CaritasEnvironment.ps1`, `scripts/Sync-CaritasSoftware.ps1`, and `scripts/Configure-CaritasHardening.ps1`.
+  - Implemented Candidate 4 (Zero-Touch USB Response File): Created `setup/autounattend.xml` bypassing Windows 11 hardware checks (TPM, CPU, RAM), formatting UEFI/GPT disks, setting `de-AT` locale, creating `CaritasAdmin`, bypassing OOBE privacy screens, and automatically launching into the administrator desktop.
 
 ## 2. Active Intent & Delivered Artifacts
 All modules, launchers, and deployment artifacts are authored, validated, and verified on the target hardware (`CARITAS-X1-1`, Windows 11 Pro 64-bit):
 
-- **Brave Search Engine Configuration:**
-  - Firefox: Configured `Homepage.URL = "https://search.brave.com"`, `Locked = true`, `StartPage = "homepage"` in `distribution\policies.json`, `firefox.cfg`, and HKLM registry.
-  - Google Chrome: Configured `HomepageLocation`, `RestoreOnStartup = 4`, `RestoreOnStartupURLs\1`, and `NewTabPageLocation` in `HKLM:\SOFTWARE\Policies\Google\Chrome`.
-  - Microsoft Edge: Configured `HomepageLocation`, `RestoreOnStartup = 4`, `RestoreOnStartupURLs\1`, and `NewTabPageLocation` in `HKLM:\SOFTWARE\Policies\Microsoft\Edge`.
-  - Scripts: `scripts/Configure-CaritasDefaults.ps1`, `scripts/Configure-CaritasMaintenanceAndPrivacy.ps1`.
+- **Handbook Documentation:**
+  - File: `HANDBUCH.md` in repository root.
+  - Contains full instructions for technician onboarding, zero-touch USB installation, BIOS configuration, 1-click suite execution, Office volume licensing, unattended TeamViewer setup, patron profile resets, and update management.
 
-- **Standard Taskbar Layout Customization:**
-  - Deployed `C:\Users\Default\AppData\Local\Microsoft\Windows\Shell\LayoutModification.xml` utilizing `<CustomTaskbarLayoutCollection PinListPlacement="Replace">` with File Explorer, Firefox, Word, Excel, and PowerPoint.
-  - Pinned shortcuts copied into `AppData\Roaming\Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar` across all user profiles.
-  - Purged Microsoft Edge, Microsoft Store, Outlook, and Mail shortcuts.
-  - Cleared `Taskband\Favorites` and `FavoritesResolve` cache across all user registry hives.
-  - Scripts: `scripts/Configure-CaritasDefaults.ps1`, `setup/Install-CaritasEnvironment.ps1`, `scripts/Reset-CaritasUserProfile.ps1`.
+- **Zero-Touch USB Response File:**
+  - File: `setup/autounattend.xml`.
+  - Fully unattended Windows 11 Pro installation with LabConfig bypass for donated hardware, GPT partitioning, Austrian locale, and `CaritasAdmin` user provisioning.
 
-- **Workstation Lock Screen Restoration:**
-  - Removed `ForceAutoLogon` from `HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon`.
-  - Preserved `AutoAdminLogon = "1"`, `DefaultUserName = "User"`, `DefaultPassword = "Caritas2412!"`.
-  - Machine boots straight to desktop on startup, while manual workstation locking (`Win+L`) remains safely on the lock screen without returning to desktop.
-  - Scripts: `scripts/Configure-CaritasDefaults.ps1`, `setup/Install-CaritasEnvironment.ps1`, `scripts/Reset-CaritasUserProfile.ps1`.
+- **Automated BIOS Hostname Assignment:**
+  - Files: `setup/Install-CaritasEnvironment.ps1`, `scripts/Configure-CaritasHardening.ps1`.
+  - Dynamic hardware query against pre-configured serial number lookup table; renames host automatically when serial matches.
 
-- **Firefox Welcome Screen & Terms of Use Elimination:**
-  - Configured `SkipTermsOfUse: true`, `DisableFirefoxScreens: true`, `OverrideFirstRunPage: ""`, `OverridePostUpdatePage: ""` in `policies.json`.
-  - Created machine-wide `defaults\pref\autoconfig.js` and `firefox.cfg` locking `trailhead.firstrun.branches: "nofirstrun-empty"`, `trailhead.firstrun.didSeeAboutWelcome: true`, and `browser.aboutwelcome.enabled: false`.
-  - Mirrored `SkipTermsOfUse = 1`, `DisableFirefoxScreens = 1` in `HKLM:\SOFTWARE\Policies\Mozilla\Firefox`.
-  - Scripts: `scripts/Configure-CaritasDefaults.ps1`, `scripts/Configure-CaritasMaintenanceAndPrivacy.ps1`.
+- **Microsoft Office 2024 LTSC Silent Activation:**
+  - Files: `setup/Install-CaritasEnvironment.ps1`, `scripts/Sync-CaritasSoftware.ps1`, `scripts/Configure-CaritasDefaults.ps1`.
+  - Silent detection and activation via `cscript.exe //Nologo ospp.vbs /inpkey:...` and `/act`.
 
-- **Firefox Autostart Elimination:**
-  - Configured `WindowsLaunchOnLogin = false` in `policies.json` and locked `browser.startup.windowsLaunchOnLogin.enabled: false` and `browser.startup.windowsLaunchOnLogin.disable: true` in `firefox.cfg`.
-  - Scrubbed `Mozilla-Firefox*` Run keys across all user registry hives and HKLM.
-  - Removed background scheduled tasks.
-  - Scripts: `scripts/Configure-CaritasDefaults.ps1`, `scripts/Configure-CaritasMaintenanceAndPrivacy.ps1`, `scripts/Reset-CaritasUserProfile.ps1`.
+- **TeamViewer Unattended Support Baseline:**
+  - Files: `setup/Install-CaritasEnvironment.ps1`, `scripts/Sync-CaritasSoftware.ps1`, `scripts/Configure-CaritasHardening.ps1`.
+  - Pre-configures `Security_WinLogin = 2` (allowing remote login using `CaritasAdmin` credentials) and `Always_Online = 1`, and sets Windows service to Automatic.
 
 ## 3. Remote Verification & Hardware Testing
 - Target Host: `10.106.81.35` (`CARITAS-X1-1`), Windows 11 Pro 64-bit Build 26100.
 - Active Administrator: `CaritasAdmin`.
 - Suite Location: `C:\Users\CaritasAdmin\Desktop\CaritasScripts\`.
 - All verification assertions passed with 100% compliance:
-  - `FF_Policies_Homepage_URL`: `https://search.brave.com` (Locked: True)
-  - `Chrome_HomepageLocation` & `Edge_HomepageLocation`: `https://search.brave.com` (RestoreOnStartup: 4)
-  - `Default_LayoutModification_Exists`: True (`PinListPlacement="Replace"`, Explorer, Firefox, Word, Excel, PowerPoint)
-  - Taskbar Shortcuts: Edge, Store, Outlook confirmed absent across all user profiles; Explorer, Firefox, Office confirmed present
-  - `Winlogon_ForceAutoLogon`: Empty ($null), `Winlogon_AutoAdminLogon`: 1, `DefaultPassword`: Caritas2412!
-  - `FF_Cfg_AboutWelcome_Disabled`: True, `FF_Cfg_Trailhead_NoFirstRun`: True, `SkipTermsOfUse`: True
-  - `Firefox_Run_Keys_Count`: 0, `Firefox_Scheduled_Tasks_Count`: 0
-  - Live Reset Verification: Executed `Install-CaritasEnvironment.ps1` and `Reset-CaritasUserProfile.ps1` live. Validated account credentials via .NET PrincipalContext and verified lock settings persist without regressions.
+  - `BIOS_SerialNumber`: `PF0YG5PW`
+  - `OS_ComputerName`: `CARITAS-X1-1`
+  - `Expected_Hostname`: `Caritas-X1-1` (Match: True)
+  - `Office_OSPP_Path`: `C:\Program Files\Microsoft Office\Office16\ospp.vbs`
+  - `Office_Is_Licensed`: True (`---LICENSED---`, MAK key ending `QYM2Q`)
+  - `TeamViewer_Service_Status`: Running (StartType: Automatic)
+  - `TeamViewer_Security_WinLogin`: 2 (Windows Authentication for all users)
+  - `TeamViewer_Always_Online`: 1
+  - `Autounattend_Xml_Exists`: True (`8559` bytes)
 
 ## 4. Pending Decisions & Next Steps
-- Commit repository changes, tag `v1.0.8`, and push to GitHub repository `Adrixan/CaritasLaptops-Management-Scripts` to trigger the automated release workflow.
+- Commit changes, tag `v1.0.9`, and push to GitHub repository `Adrixan/CaritasLaptops-Management-Scripts` to trigger the automated release workflow.
 - Monitor GitHub Actions release build.

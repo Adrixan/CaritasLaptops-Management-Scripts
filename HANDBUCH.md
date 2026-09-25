@@ -21,8 +21,7 @@ Die folgenden Zugangsdaten gelten standardisiert für alle Laptops der Organisat
 
 ## 2. Hardware-Inventar und Gerätenamen
 
-Jedem Gerät ist anhand seiner eindeutigen Hardware-Seriennummer (im BIOS oder auf der Geräteunterseite lesbar) ein fester Hostname zugewiesen:
-
+Jedem Gerät ist anhand seiner eindeutigen Hardware-Seriennummer (im BIOS oder auf der Geräteunterseite lesbar) ein fester Hostname zugewiesen. Die Caritas Management-Suite liest die BIOS-Seriennummer automatisch aus und benennt den Laptop beim Setup oder Härten ohne manuelle Eingabe um:
 | Seriennummer | Modell | Zugewiesener Hostname | BIOS Hotkey | Boot-Menü Hotkey |
 | :--- | :--- | :--- | :--- | :--- |
 | `PF1WVA11` | Lenovo ThinkPad T480 | `Caritas-T480-1` | Enter / F1 | F12 |
@@ -46,19 +45,29 @@ Jedem Gerät ist anhand seiner eindeutigen Hardware-Seriennummer (im BIOS oder a
 - Secure Boot aktiviert lassen (für Windows 11 erforderlich).
 - Einstellungen mit `F10` speichern und neu starten.
 
-### 3.2 Installation von USB-Medium
-- Vorbereiteten USB-Installationsstick mit aktuellem Windows 11 Pro 64-Bit anstecken.
-- Boot-Menü aufrufen (Lenovo: `F12`, Acer: `F12`, HP: `F9`) und den USB-Stick auswählen.
+### 3.2 Zero-Touch USB-Installation mit autounattend.xml (Empfohlen)
+Für eine vollständig unbegleitete Neuinstallation steht in der Suite die Antwortdatei [`setup/autounattend.xml`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/setup/autounattend.xml) bereit:
+- Einen bootfähigen Windows 11 USB-Stick (z. B. via Microsoft Media Creation Tool oder Rufus) erstellen.
+- Die Datei [`setup/autounattend.xml`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/setup/autounattend.xml) direkt in das Stammverzeichnis des USB-Sticks kopieren (`D:\autounattend.xml`).
+- Den USB-Stick am Ziel-Laptop anstecken und über das Boot-Menü starten (Lenovo: `F12`, Acer: `F12`, HP: `F9`).
+- Der gesamte Installationsprozess läuft vollautomatisch ohne Benutzereingriff ab:
+- Umgeht Hardware-Voraussetzungen (TPM 2.0, SecureBoot, RAM, CPU-Prüfungen) für ältere Spenden-Laptops.
+- Partitioniert die primäre Festplatte nach UEFI/GPT-Standard (EFI, MSR, NTFS).
+- Installiert Windows 11 Pro mit Sprach- und Tastaturlayout Deutsch (Österreich, `de-AT`).
+- Legt das lokale Administratorkonto `CaritasAdmin` mit Kennwort `CariUntertasse-STMK-2025!` an.
+- Umgeht den Microsoft-Konto-Onlinezwang (`BypassNRO`) und unterdrückt alle OOBE-Datenschutzfragen.
+- Führt eine automatische Erstanmeldung als `CaritasAdmin` durch. Direkt nach dem Start steht der saubere Desktop bereit.
+
+### 3.3 Manuelle Installation von USB-Medium (Fallback)
+Falls ohne Antwortdatei installiert wird:
+- Vorbereiteten USB-Installationsstick mit Windows 11 Pro anstecken und starten.
 - Sprache: Deutsch (Österreich), Tastatur: Deutsch.
 - Bei der Editionswahl **Windows 11 Pro** wählen (digitale Lizenz ist im Mainboard hinterlegt).
-- Festplattenpartitionierung: Vorhandene Partitionen auf dem Ziellaufwerk löschen und in den unzugewiesenen Speicherplatz installieren.
-
-### 3.3 Windows-Ersteinrichtung (OOBE)
-- Gerätenamen entsprechend obiger Tabelle vergeben (z. B. `Caritas-X1-1`).
-- Option **Für persönliche Verwendung einrichten** wählen.
+- Vorhandene Partitionen auf dem Ziellaufwerk löschen und in den unzugewiesenen Speicherplatz installieren.
+- In der Windows-Ersteinrichtung (OOBE) die Option **Für persönliche Verwendung einrichten** wählen.
 - Microsoft-Konto `caritas-laptops@outlook.com` mit Kennwort `CariUntertasse-STMK-2025!` verwenden (oder lokales Konto `CaritasAdmin` anlegen).
-- Bei den Microsoft-Fragen zu Standort, Diagnose und Werbe-ID jeweils die datenschutzfreundlichste Option wählen (alle Fragen mit "Nein" bzw. "Nur erforderlich" beantworten).
-- Angebote zu Microsoft 365, Game Pass, Cloud-Speicher und Smartphone-Verknüpfung jeweils überspringen bzw. ablehnen.
+- Alle Fragen zu Standort, Diagnose und Werbe-ID mit der datenschutzfreundlichsten Option beantworten.
+- Angebote zu Microsoft 365, Game Pass und Cloud-Speicher überspringen oder ablehnen.
 - Sobald der Windows-Desktop erscheint, mit Schritt 4 fortfahren.
 
 ---
@@ -131,33 +140,38 @@ Nach Abschluss der Routine ist das Gerät technisch vollständig konfiguriert.
 
 Die Microsoft Office 2024 LTSC Installation wird über den Standard-Volumenlizenzschlüssel aktiviert.
 
-### Methode A: Automatisch via Eingabeaufforderung (Empfohlen)
-Eine administrative PowerShell oder Eingabeaufforderung öffnen und folgende Befehle ausführen:
+### Automatische Aktivierung durch die Caritas Management-Suite (Standard)
+Die Caritas Management-Suite führt die Aktivierung im Rahmen der Erst-Einrichtung ([`setup/Install-CaritasEnvironment.ps1`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/setup/Install-CaritasEnvironment.ps1)), der Software-Synchronisation ([`scripts/Sync-CaritasSoftware.ps1`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/scripts/Sync-CaritasSoftware.ps1)) sowie der Standardanwendungs-Konfiguration ([`scripts/Configure-CaritasDefaults.ps1`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/scripts/Configure-CaritasDefaults.ps1)) vollautomatisch im Hintergrund durch:
+- Prüft über das Office Software Protection Platform Skript (`ospp.vbs`), ob bereits eine gültige Lizenz vorliegt.
+- Hinterlegt bei Bedarf den MAK-Volumenlizenzschlüssel `9YQNX-W4TVK-74HXJ-YDFX6-QYM2Q`.
+- Löst die Online-Aktivierung bei Microsoft aus und protokolliert den Erfolg.
 
-```cmd
-cscript.exe "%ProgramFiles%\Microsoft Office\Office16\ospp.vbs" /inpkey:9YQNX-W4TVK-74HXJ-YDFX6-QYM2Q
-cscript.exe "%ProgramFiles%\Microsoft Office\Office16\ospp.vbs" /act
-```
-
-### Methode B: Manuell über die Programmoberfläche
-- Word über das Startmenü oder die Taskleiste starten.
-- Links unten auf **Konto** klicken.
-- Unter den Produktinformationen auf **Product Key ändern** klicken.
-- Den Lizenzschlüssel `9YQNX-W4TVK-74HXJ-YDFX6-QYM2Q` eingeben.
-- Den Anweisungen zur Online-Aktivierung folgen.
+### Manuelle Aktivierung (Fallback)
+Falls eine manuelle Aktivierung gewünscht ist:
+- **Über die Kommandozeile:**
+  ```cmd
+  cscript.exe "%ProgramFiles%\Microsoft Office\Office16\ospp.vbs" /inpkey:9YQNX-W4TVK-74HXJ-YDFX6-QYM2Q
+  cscript.exe "%ProgramFiles%\Microsoft Office\Office16\ospp.vbs" /act
+  ```
+- **Über die Programmoberfläche:**
+  Word starten, auf **Konto** -> **Product Key ändern** klicken, den Lizenzschlüssel `9YQNX-W4TVK-74HXJ-YDFX6-QYM2Q` eingeben und bestätigen.
 
 ---
 
-## 6. TeamViewer Fernwartung konfigurieren
+## 6. TeamViewer Fernwartung
 
-Für den Remote-Support über das Internet wird TeamViewer für unbeaufsichtigten Zugriff eingerichtet:
+Für den Remote-Support über das Internet ist TeamViewer für den unbeaufsichtigten Zugriff vorkonfiguriert.
 
+### Automatische Vorbereitung durch die Management-Suite (Standard)
+Die Caritas Management-Suite konfiguriert TeamViewer bei der Erst-Einrichtung und beim System-Hardening ([`scripts/Configure-CaritasHardening.ps1`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/scripts/Configure-CaritasHardening.ps1)) direkt in der Registrierung:
+- Schaltet die Windows-Authentifizierung für alle Benutzer frei (`Security_WinLogin = 2`). Support-Mitarbeitende können sich mit den Windows-Administrator-Zugangsdaten (`CaritasAdmin` / `CariUntertasse-STMK-2025!`) direkt aufschalten.
+- Aktiviert den automatischen Systemstart mit Windows (`Always_Online = 1` und `Autostart = 1`).
+- Setzt den Windows-Dienst `TeamViewer` auf den Starttyp `Automatisch` und stellt sicher, dass der Dienst aktiv läuft.
+
+### Manuelle Fernwartungs-Optionen (Fallback)
 - TeamViewer über das Startmenü als Administrator (`CaritasAdmin`) starten.
-- In den TeamViewer-Optionen das Kontrollkästchen **TeamViewer mit Windows starten** aktivieren.
-- Zu **Einstellungen** -> **Sicherheit** navigieren:
-  - Unter **Windows-Authentifizierung** die Option **Für alle Benutzer zulassen** wählen.
-  - Ein sicheres Kennwort für den unbeaufsichtigten Zugriff hinterlegen oder die Caritas-TeamViewer-ID im Firmenkonto zuweisen.
-- Einmalig als Benutzer `User` anmelden und prüfen, ob TeamViewer im Hintergrund läuft.
+- In den Einstellungen unter **Sicherheit** prüfen, dass **Windows-Authentifizierung** auf **Für alle Benutzer zulassen** steht.
+- Bei Bedarf die TeamViewer-ID im Firmenkonto zuweisen.
 
 ---
 
