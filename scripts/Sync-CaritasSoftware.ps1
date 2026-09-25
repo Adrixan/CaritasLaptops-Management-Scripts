@@ -217,6 +217,8 @@ function Invoke-UniversalUninstall {
 # Disallowed software defined by policy (dynamically discovered on any machine)
 $disallowedWin32Patterns = @(
     @{ Pattern = "*Blender*"; WingetId = "BlenderFoundation.Blender" },
+    @{ Pattern = "*Discord*"; WingetId = "XPDC2RH70K22MN" },
+    @{ Pattern = "*Discord*"; WingetId = "Discord.Discord" },
     @{ Pattern = "*FileZilla*"; WingetId = "TimKosse.FileZilla.Client" },
     @{ Pattern = "*Git*"; WingetId = "Git.Git" },
     @{ Pattern = "*Google Earth*"; WingetId = "Google.GoogleEarthPro" },
@@ -230,6 +232,38 @@ $disallowedWin32Patterns = @(
 
 foreach ($target in $disallowedWin32Patterns) {
     Invoke-UniversalUninstall -NamePattern $target.Pattern -WingetId $target.WingetId -DryRunMode:$DryRun
+}
+
+# Dedicated purge for Discord and Discord System Helper (machine-wide Squirrel, Run keys, shortcuts)
+Write-SyncLog "Checking for residual Discord and Discord System Helper artifacts..." "INFO" ([ConsoleColor]::Yellow)
+if (-not $DryRun) {
+    Get-Process -Name "*discord*", "*DiscordSystemHelper*" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    Remove-ItemProperty -Path "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Run" -Name "Discord" -ErrorAction SilentlyContinue
+    Remove-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" -Name "Discord" -ErrorAction SilentlyContinue
+    if (Test-Path "C:\ProgramData\SquirrelMachineInstalls\Discord.exe") {
+        Remove-Item -Path "C:\ProgramData\SquirrelMachineInstalls\Discord.exe" -Force -ErrorAction SilentlyContinue
+    }
+    if ((Test-Path "C:\ProgramData\SquirrelMachineInstalls") -and ((Get-ChildItem "C:\ProgramData\SquirrelMachineInstalls" -ErrorAction SilentlyContinue).Count -eq 0)) {
+        Remove-Item -Path "C:\ProgramData\SquirrelMachineInstalls" -Force -Recurse -ErrorAction SilentlyContinue
+    }
+    Get-ChildItem Registry::HKEY_USERS -ErrorAction SilentlyContinue | ForEach-Object {
+        $sid = $_.PSChildName
+        $rKey = "Registry::HKEY_USERS\$sid\SOFTWARE\Microsoft\Windows\CurrentVersion\Run"
+        if (Test-Path $rKey) {
+            Remove-ItemProperty -Path $rKey -Name "Discord" -ErrorAction SilentlyContinue
+            Remove-ItemProperty -Path $rKey -Name "DiscordSystemHelper" -ErrorAction SilentlyContinue
+        }
+        $uKey = "Registry::HKEY_USERS\$sid\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Discord"
+        if (Test-Path $uKey) {
+            Remove-Item -Path $uKey -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+    Get-ChildItem -Path "C:\Users\*\AppData\Local\Discord*" -Directory -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+    Get-ChildItem -Path "C:\Users\*\AppData\Roaming\*discord*" -Directory -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+    Get-ChildItem -Path "C:\Users\*\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\*discord*" -Recurse -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+    Get-ChildItem -Path "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\*discord*" -Recurse -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+    Get-ChildItem -Path "C:\Users\*\Desktop\*discord*.lnk" -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
+    Get-ChildItem -Path "C:\Users\Public\Desktop\*discord*.lnk" -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
 }
 
 # Clean any residual user-level Python package caches dynamically across all user profiles

@@ -98,7 +98,7 @@ The terminal console [`scripts/Caritas-ControlCenter.ps1`](file:///home/Adrixan/
 ### 1. Software Synchronization & Update Automation
 The script [`scripts/Sync-CaritasSoftware.ps1`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/scripts/Sync-CaritasSoftware.ps1) enforces software retention, upgrades desktop tools, and pulls Windows Updates:
 - Phase 1: Locates, validates, and initializes the Windows Package Manager (`winget`).
-- Phase 2: Silently purges unselected Win32 desktop applications and modern AppX bloatware.
+- Phase 2: Silently purges unselected Win32 desktop applications, Discord with Discord System Helper (machine-wide Squirrel installers and autostart Run hooks), and modern AppX bloatware.
 - Phase 3: Verifies all approved core applications are present, installing missing packages via `winget`.
 - Phase 4: Executes `winget upgrade --all` and triggers Microsoft Office Click-to-Run updates.
 - Phase 5: Queries Windows Update online (`Microsoft.Update.Session`), downloading and installing cumulative security updates, OEM firmware, and device drivers (Intel, Realtek, Lenovo, HP, Dell).
@@ -120,6 +120,7 @@ The script [`scripts/Reset-CaritasUserProfile.ps1`](file:///home/Adrixan/code/Ca
 - Unprivileged Patron Trigger: Deploys a shortcut (`Sitzung zurücksetzen.lnk`) to `C:\Users\Public\Desktop` allowing patrons or volunteers to initiate an immediate profile wipe without administrative credentials.
 - SYSTEM Task Delegation: Executes via an elevated Windows Scheduled Task (`Caritas-ResetUserSession`) running under `NT AUTHORITY\SYSTEM` with explicit execute permissions granted to `Builtin\Users`.
 - Strict On-Demand Execution: Resets are exclusively triggered on demand, either by clicking the desktop shortcut or through the administrator Control Center. Profiles are intentionally never purged automatically on reboot, shutdown, or logout to safeguard patron work across routine restarts.
+- Automatic Logon & Password: Enforces automatic Windows console logon for `User` with standard password `Caritas2412!` and Winlogon credentials (`AutoAdminLogon = 1`, `DefaultPassword = Caritas2412!`, `ForceAutoLogon = 1`). Reset operations automatically re-synchronize local account password and Winlogon registry keys.
 - Cloud Identity Lockdown: Enforces `NoConnectedUser = 3` (blocks Microsoft Account linking), `DisableFileSyncNGSC = 1` (disables OneDrive storage and background sync), and `DisableSettingSync = 2` (prevents settings synchronization).
 - Logging: Recorded to `logs\UserReset.log`.
 

@@ -30,6 +30,7 @@
 [CmdletBinding()]
 param(
     [string]$TargetUsername = "User",
+    [string]$UserPassword = "Caritas2412!",
     [switch]$RegisterTask,
     [switch]$CreateDesktopShortcut,
     [switch]$InstallAll,
@@ -203,7 +204,16 @@ if (-not $DryRun) {
         Write-ResetLog "  -> Entferne verbleibenden Profilordner: $folderPath..." "ACTION" ([ConsoleColor]::Yellow)
         Remove-Item -Path $folderPath -Recurse -Force -ErrorAction SilentlyContinue
     }
-    Write-ResetLog "  [OK] Registrierung und Profilordner bereinigt." "INFO" ([ConsoleColor]::Green)
+
+    # Ensure Discord machine-wide autostart artifacts are cleaned
+    Get-Process -Name "*discord*", "*DiscordSystemHelper*" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    Remove-ItemProperty -Path "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Run" -Name "Discord" -ErrorAction SilentlyContinue
+    Remove-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" -Name "Discord" -ErrorAction SilentlyContinue
+    if (Test-Path "C:\ProgramData\SquirrelMachineInstalls\Discord.exe") {
+        Remove-Item -Path "C:\ProgramData\SquirrelMachineInstalls\Discord.exe" -Force -ErrorAction SilentlyContinue
+    }
+
+    Write-ResetLog "  [OK] Registrierung, Profilordner und Autostart-Reste bereinigt." "INFO" ([ConsoleColor]::Green)
 } else {
     Write-ResetLog "  [DryRun] Würde ProfileList-Schlüssel bereinigen und C:\Users\$TargetUsername entfernen." "INFO" ([ConsoleColor]::Gray)
 }
@@ -216,13 +226,18 @@ if (-not $DryRun) {
     $usersGroupName = (Get-LocalGroup | Where-Object { $_.SID.Value -eq "S-1-5-32-545" }).Name
     $adminGroupName = (Get-LocalGroup | Where-Object { $_.SID.Value -eq "S-1-5-32-544" }).Name
 
+    $secPass = ConvertTo-SecureString $UserPassword -AsPlainText -Force
+
     $localUser = Get-LocalUser -Name $TargetUsername -ErrorAction SilentlyContinue
     if (-not $localUser) {
-        Write-ResetLog "  -> Erstelle lokales Benutzerkonto '$TargetUsername'..." "ACTION" ([ConsoleColor]::Green)
-        New-LocalUser -Name $TargetUsername -Description "Default shared standard user" -NoPassword | Out-Null
+        Write-ResetLog "  -> Erstelle lokales Benutzerkonto '$TargetUsername' mit Standard-Kennwort..." "ACTION" ([ConsoleColor]::Green)
+        New-LocalUser -Name $TargetUsername -Description "Default shared standard user" -Password $secPass | Out-Null
+    } else {
+        Write-ResetLog "  -> Aktualisiere Kennwort für '$TargetUsername'..." "ACTION" ([ConsoleColor]::Green)
+        Set-LocalUser -Name $TargetUsername -Password $secPass -ErrorAction SilentlyContinue | Out-Null
     }
 
-    Set-LocalUser -Name $TargetUsername -PasswordNeverExpires $true | Out-Null
+    Set-LocalUser -Name $TargetUsername -PasswordNeverExpires $true -UserMayChangePassword $true | Out-Null
     Add-LocalGroupMember -Group $usersGroupName -Member $TargetUsername -ErrorAction SilentlyContinue
 
     # Ensure target is not an administrator
@@ -238,12 +253,12 @@ if (-not $DryRun) {
     Set-ItemProperty -Path $winlogonKey -Name "AutoAdminLogon" -Value "1" -Type String -Force
     Set-ItemProperty -Path $winlogonKey -Name "DefaultUserName" -Value $TargetUsername -Type String -Force
     Set-ItemProperty -Path $winlogonKey -Name "DefaultDomainName" -Value $env:COMPUTERNAME -Type String -Force
-    Set-ItemProperty -Path $winlogonKey -Name "DefaultPassword" -Value "" -Type String -Force
+    Set-ItemProperty -Path $winlogonKey -Name "DefaultPassword" -Value $UserPassword -Type String -Force
     Set-ItemProperty -Path $winlogonKey -Name "ForceAutoLogon" -Value "1" -Type String -Force
     Set-ItemProperty -Path $winlogonKey -Name "LastUsedUsername" -Value $TargetUsername -Type String -Force
     Remove-ItemProperty -Path $winlogonKey -Name "AutoLogonCount" -ErrorAction SilentlyContinue
 
-    Write-ResetLog "  [OK] Benutzerkonto und automatische Anmeldung erfolgreich konfiguriert." "INFO" ([ConsoleColor]::Green)
+    Write-ResetLog "  [OK] Benutzerkonto und automatische Anmeldung erfolgreich konfiguriert (Kennwort gesetzt)." "INFO" ([ConsoleColor]::Green)
 } else {
     Write-ResetLog "  [DryRun] Würde Benutzerkonto '$TargetUsername' und Autologon konfigurieren." "INFO" ([ConsoleColor]::Gray)
 }
