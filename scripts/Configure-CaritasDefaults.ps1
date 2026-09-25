@@ -250,6 +250,7 @@ if (-not $SkipExtensions) {
 
     $ffPolicyPayload = @{
         policies = @{
+            SkipTermsOfUse = $true
             DontCheckDefaultBrowser = $true
             OverrideFirstRunPage = ""
             OverridePostUpdatePage = ""
@@ -258,14 +259,16 @@ if (-not $SkipExtensions) {
             DisableFirefoxStudies = $true
             DisableTelemetry = $true
             DisablePocket = $true
+            DisableFirefoxScreens = $true
+            WindowsLaunchOnLogin = $false
             PromptForDownloadLocation = $false
             PasswordManagerEnabled = $false
             OfferToSaveLogins = $false
             AutofillAddressEnabled = $false
             AutofillCreditCardEnabled = $false
             Homepage = @{
-                URL = "https://duckduckgo.com"
-                Locked = $false
+                URL = "https://search.brave.com"
+                Locked = $true
                 StartPage = "homepage"
             }
             FirefoxHome = @{
@@ -280,14 +283,25 @@ if (-not $SkipExtensions) {
             }
             Preferences = @{
                 "browser.aboutwelcome.enabled" = @{ Value = $false; Status = "locked" }
+                "browser.aboutwelcome.screens" = @{ Value = ""; Status = "locked" }
                 "browser.startup.homepage_welcome_url" = @{ Value = ""; Status = "locked" }
                 "browser.startup.homepage_welcome_url.additional" = @{ Value = ""; Status = "locked" }
+                "startup.homepage_welcome_url" = @{ Value = ""; Status = "locked" }
+                "startup.homepage_welcome_url.additional" = @{ Value = ""; Status = "locked" }
                 "trailhead.firstrun.didSeeAboutWelcome" = @{ Value = $true; Status = "locked" }
+                "trailhead.firstrun.branches" = @{ Value = "nofirstrun-empty"; Status = "locked" }
+                "browser.startup.firstrunSkipsHomepage" = @{ Value = $false; Status = "locked" }
+                "browser.startup.homepage_override.mstone" = @{ Value = "ignore"; Status = "locked" }
+                "browser.startup.page" = @{ Value = 1; Status = "locked" }
+                "browser.startup.homepage" = @{ Value = "https://search.brave.com"; Status = "locked" }
                 "browser.shell.checkDefaultBrowser" = @{ Value = $false; Status = "locked" }
                 "browser.startup.windowsLaunchOnLogin.enabled" = @{ Value = $false; Status = "locked" }
+                "browser.startup.windowsLaunchOnLogin.disable" = @{ Value = $true; Status = "locked" }
                 "doh-rollout.doneFirstRun" = @{ Value = $true; Status = "locked" }
                 "app.shield.optoutstudies.enabled" = @{ Value = $false; Status = "locked" }
                 "datareporting.policy.dataSubmissionPolicyAcceptedVersion" = @{ Value = 2; Status = "locked" }
+                "browser.uitour.enabled" = @{ Value = $false; Status = "locked" }
+                "browser.newtabpage.activity-stream.aboutwelcome.show" = @{ Value = $false; Status = "locked" }
                 "browser.newtabpage.activity-stream.asrouter.userprefs.cfr.addons" = @{ Value = $false; Status = "locked" }
                 "browser.newtabpage.activity-stream.asrouter.userprefs.cfr.features" = @{ Value = $false; Status = "locked" }
                 "browser.tabs.warnOnClose" = @{ Value = $false; Status = "default" }
@@ -310,26 +324,65 @@ if (-not $SkipExtensions) {
     $ffPolicyJson = $ffPolicyPayload | ConvertTo-Json -Depth 10
 
     if (-not $DryRun) {
-        # 1. distribution/policies.json file
+        # 1. distribution/policies.json file & autoconfig locking
         foreach ($ffDir in $ffInstallDirs) {
             $distDir = Join-Path $ffDir "distribution"
             if (-not (Test-Path $distDir)) { New-Item -ItemType Directory -Path $distDir -Force | Out-Null }
             $policyFile = Join-Path $distDir "policies.json"
             [System.IO.File]::WriteAllText($policyFile, $ffPolicyJson, [System.Text.Encoding]::UTF8)
             Write-DefaultsLog "    Deployed Firefox policies.json to $policyFile." "ACTION" ([ConsoleColor]::Green)
+
+            # Deploy autoconfig & firefox.cfg to guarantee first-run bypass
+            $prefDir = Join-Path $ffDir "defaults\pref"
+            if (-not (Test-Path $prefDir)) { New-Item -ItemType Directory -Path $prefDir -Force | Out-Null }
+            $autoJs = "pref(`"general.config.filename`", `"firefox.cfg`");`r`npref(`"general.config.obscure_value`", 0);`r`n"
+            [System.IO.File]::WriteAllText((Join-Path $prefDir "autoconfig.js"), $autoJs, [System.Text.Encoding]::UTF8)
+
+            $ffCfgContent = @"
+// First line must be a comment
+lockPref("trailhead.firstrun.branches", "nofirstrun-empty");
+lockPref("trailhead.firstrun.didSeeAboutWelcome", true);
+lockPref("browser.aboutwelcome.enabled", false);
+lockPref("browser.aboutwelcome.screens", "");
+lockPref("browser.startup.firstrunSkipsHomepage", false);
+lockPref("browser.startup.homepage_override.mstone", "ignore");
+lockPref("browser.startup.page", 1);
+lockPref("browser.startup.homepage", "https://search.brave.com");
+lockPref("browser.newtabpage.activity-stream.aboutwelcome.show", false);
+lockPref("browser.startup.windowsLaunchOnLogin.enabled", false);
+lockPref("browser.startup.windowsLaunchOnLogin.disable", true);
+lockPref("browser.shell.checkDefaultBrowser", false);
+lockPref("browser.startup.homepage_welcome_url", "");
+lockPref("browser.startup.homepage_welcome_url.additional", "");
+lockPref("startup.homepage_welcome_url", "");
+lockPref("startup.homepage_welcome_url.additional", "");
+lockPref("browser.uitour.enabled", false);
+lockPref("doh-rollout.doneFirstRun", true);
+"@
+            [System.IO.File]::WriteAllText((Join-Path $ffDir "firefox.cfg"), $ffCfgContent, [System.Text.Encoding]::UTF8)
+            Write-DefaultsLog "    Deployed Firefox autoconfig.js and firefox.cfg." "ACTION" ([ConsoleColor]::Green)
         }
 
         # 2. HKLM Registry Policy for Firefox
         $ffRegPolicy = "HKLM:\SOFTWARE\Policies\Mozilla\Firefox"
         if (-not (Test-Path $ffRegPolicy)) { New-Item -Path $ffRegPolicy -Force | Out-Null }
+        New-ItemProperty -Path $ffRegPolicy -Name "SkipTermsOfUse" -Value 1 -PropertyType DWord -Force | Out-Null
+        New-ItemProperty -Path $ffRegPolicy -Name "DisableFirefoxScreens" -Value 1 -PropertyType DWord -Force | Out-Null
         New-ItemProperty -Path $ffRegPolicy -Name "DontCheckDefaultBrowser" -Value 1 -PropertyType DWord -Force | Out-Null
         New-ItemProperty -Path $ffRegPolicy -Name "DisableProfileImport" -Value 1 -PropertyType DWord -Force | Out-Null
         New-ItemProperty -Path $ffRegPolicy -Name "DisableTelemetry" -Value 1 -PropertyType DWord -Force | Out-Null
         New-ItemProperty -Path $ffRegPolicy -Name "DisablePocket" -Value 1 -PropertyType DWord -Force | Out-Null
+        New-ItemProperty -Path $ffRegPolicy -Name "WindowsLaunchOnLogin" -Value 0 -PropertyType DWord -Force | Out-Null
         New-ItemProperty -Path $ffRegPolicy -Name "PasswordManagerEnabled" -Value 0 -PropertyType DWord -Force | Out-Null
         New-ItemProperty -Path $ffRegPolicy -Name "OfferToSaveLogins" -Value 0 -PropertyType DWord -Force | Out-Null
         New-ItemProperty -Path $ffRegPolicy -Name "OverrideFirstRunPage" -Value "" -PropertyType String -Force | Out-Null
         New-ItemProperty -Path $ffRegPolicy -Name "OverridePostUpdatePage" -Value "" -PropertyType String -Force | Out-Null
+
+        $ffHpKey = "$ffRegPolicy\Homepage"
+        if (-not (Test-Path $ffHpKey)) { New-Item -Path $ffHpKey -Force | Out-Null }
+        New-ItemProperty -Path $ffHpKey -Name "URL" -Value "https://search.brave.com" -PropertyType String -Force | Out-Null
+        New-ItemProperty -Path $ffHpKey -Name "Locked" -Value 1 -PropertyType DWord -Force | Out-Null
+        New-ItemProperty -Path $ffHpKey -Name "StartPage" -Value "homepage" -PropertyType String -Force | Out-Null
 
         $ffExtSettingsKey = "$ffRegPolicy\ExtensionSettings\uBlock0@raymondhill.net"
         if (-not (Test-Path $ffExtSettingsKey)) { New-Item -Path $ffExtSettingsKey -Force | Out-Null }
@@ -359,13 +412,14 @@ if (-not $SkipExtensions) {
             }
         }
 
-        # 4. Disable Firefox background scheduled tasks
+        # 4. Disable and remove Firefox background scheduled tasks
         Get-ScheduledTask | Where-Object { ($_.TaskName -like "*Firefox*") -or ($_.TaskPath -like "*Mozilla*") } | ForEach-Object {
             Disable-ScheduledTask -TaskName $_.TaskName -ErrorAction SilentlyContinue | Out-Null
-            Write-DefaultsLog "    Disabled Firefox scheduled task: $($_.TaskName)." "ACTION" ([ConsoleColor]::Yellow)
+            Unregister-ScheduledTask -TaskName $_.TaskName -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
+            Write-DefaultsLog "    Removed Firefox scheduled task: $($_.TaskName)." "ACTION" ([ConsoleColor]::Yellow)
         }
 
-        Write-DefaultsLog "    [OK] Mozilla Firefox pre-configured with first-run dialogue suppression." "ACTION" ([ConsoleColor]::Green)
+        Write-DefaultsLog "    [OK] Mozilla Firefox configured (Brave Search default, welcome screen suppressed, autostart disabled)." "ACTION" ([ConsoleColor]::Green)
     } else {
         Write-DefaultsLog "    [DryRun] Would write Firefox policies.json and HKLM policies." "INFO" ([ConsoleColor]::Gray)
     }
@@ -379,6 +433,16 @@ if (-not $SkipExtensions) {
         # Enable Manifest V2 availability via enterprise policy
         New-ItemProperty -Path $chromePolicyPath -Name "ExtensionManifestV2Availability" -Value 2 -PropertyType DWord -Force | Out-Null
 
+        # Set Brave Search as homepage & startup page
+        New-ItemProperty -Path $chromePolicyPath -Name "HomepageLocation" -Value "https://search.brave.com" -PropertyType String -Force | Out-Null
+        New-ItemProperty -Path $chromePolicyPath -Name "HomepageIsNewTabPage" -Value 0 -PropertyType DWord -Force | Out-Null
+        New-ItemProperty -Path $chromePolicyPath -Name "RestoreOnStartup" -Value 4 -PropertyType DWord -Force | Out-Null
+        $chromeStartupKey = "$chromePolicyPath\RestoreOnStartupURLs"
+        if (-not (Test-Path $chromeStartupKey)) { New-Item -Path $chromeStartupKey -Force | Out-Null }
+        New-ItemProperty -Path $chromeStartupKey -Name "1" -Value "https://search.brave.com" -PropertyType String -Force | Out-Null
+        New-ItemProperty -Path $chromePolicyPath -Name "NewTabPageLocation" -Value "https://search.brave.com" -PropertyType String -Force | Out-Null
+        New-ItemProperty -Path $chromePolicyPath -Name "ShowHomeButton" -Value 1 -PropertyType DWord -Force | Out-Null
+
         # Force install uBlock Origin extension
         $chromeForceKey = "$chromePolicyPath\ExtensionInstallForcelist"
         if (-not (Test-Path $chromeForceKey)) { New-Item -Path $chromeForceKey -Force | Out-Null }
@@ -389,7 +453,7 @@ if (-not $SkipExtensions) {
         if (-not (Test-Path $chromeAdminKey)) { New-Item -Path $chromeAdminKey -Force | Out-Null }
         New-ItemProperty -Path $chromeAdminKey -Name "adminSettings" -Value $adminSettingsJson -PropertyType String -Force | Out-Null
 
-        Write-DefaultsLog "    [OK] Google Chrome policies configured (uBlock Origin forced, MV2 enabled, filter lists mapped)." "ACTION" ([ConsoleColor]::Green)
+        Write-DefaultsLog "    [OK] Google Chrome configured (Brave Search default, uBlock Origin forced)." "ACTION" ([ConsoleColor]::Green)
     } else {
         Write-DefaultsLog "    [DryRun] Would configure Google Chrome ExtensionInstallForcelist and adminSettings." "INFO" ([ConsoleColor]::Gray)
     }
@@ -403,6 +467,17 @@ if (-not $SkipExtensions) {
         # Enable Manifest V2 availability via enterprise policy
         New-ItemProperty -Path $edgePolicyPath -Name "ExtensionManifestV2Availability" -Value 2 -PropertyType DWord -Force | Out-Null
 
+        # Set Brave Search as homepage & startup page
+        New-ItemProperty -Path $edgePolicyPath -Name "HomepageLocation" -Value "https://search.brave.com" -PropertyType String -Force | Out-Null
+        New-ItemProperty -Path $edgePolicyPath -Name "HomepageIsNewTabPage" -Value 0 -PropertyType DWord -Force | Out-Null
+        New-ItemProperty -Path $edgePolicyPath -Name "RestoreOnStartup" -Value 4 -PropertyType DWord -Force | Out-Null
+        $edgeStartupKey = "$edgePolicyPath\RestoreOnStartupURLs"
+        if (-not (Test-Path $edgeStartupKey)) { New-Item -Path $edgeStartupKey -Force | Out-Null }
+        New-ItemProperty -Path $edgeStartupKey -Name "1" -Value "https://search.brave.com" -PropertyType String -Force | Out-Null
+        New-ItemProperty -Path $edgePolicyPath -Name "NewTabPageLocation" -Value "https://search.brave.com" -PropertyType String -Force | Out-Null
+        New-ItemProperty -Path $edgePolicyPath -Name "ShowHomeButton" -Value 1 -PropertyType DWord -Force | Out-Null
+        New-ItemProperty -Path $edgePolicyPath -Name "HideFirstRunExperience" -Value 1 -PropertyType DWord -Force | Out-Null
+
         # Force install uBlock Origin extension from Microsoft Edge Add-ons store
         $edgeForceKey = "$edgePolicyPath\ExtensionInstallForcelist"
         if (-not (Test-Path $edgeForceKey)) { New-Item -Path $edgeForceKey -Force | Out-Null }
@@ -413,16 +488,16 @@ if (-not $SkipExtensions) {
         if (-not (Test-Path $edgeAdminKey)) { New-Item -Path $edgeAdminKey -Force | Out-Null }
         New-ItemProperty -Path $edgeAdminKey -Name "adminSettings" -Value $adminSettingsJson -PropertyType String -Force | Out-Null
 
-        Write-DefaultsLog "    [OK] Microsoft Edge policies configured (uBlock Origin forced, MV2 enabled, filter lists mapped)." "ACTION" ([ConsoleColor]::Green)
+        Write-DefaultsLog "    [OK] Microsoft Edge configured (Brave Search default, uBlock Origin forced, first-run suppressed)." "ACTION" ([ConsoleColor]::Green)
     } else {
         Write-DefaultsLog "    [DryRun] Would configure Microsoft Edge ExtensionInstallForcelist and adminSettings." "INFO" ([ConsoleColor]::Gray)
     }
 } else {
-    Write-DefaultsLog "[Module 2/3] Browser ad-blocker extensions skipped via -SkipExtensions flag." "INFO" ([ConsoleColor]::Gray)
+    Write-DefaultsLog "[Module 2/4] Browser ad-blocker extensions skipped via -SkipExtensions flag." "INFO" ([ConsoleColor]::Gray)
 }
 
 # 4. Module 3: Automatic Logon for Shared Account 'User'
-Write-DefaultsLog "[Module 3/3] Configuring Automatic Logon (Autologon) for 'User'..." "INFO" ([ConsoleColor]::Yellow)
+Write-DefaultsLog "[Module 3/4] Configuring Automatic Logon (Autologon) for 'User'..." "INFO" ([ConsoleColor]::Yellow)
 if (-not $DryRun) {
     try {
         $targetUser = "User"
@@ -439,15 +514,93 @@ if (-not $DryRun) {
         Set-ItemProperty -Path $winlogonKey -Name "DefaultUserName" -Value $targetUser -Type String -Force
         Set-ItemProperty -Path $winlogonKey -Name "DefaultDomainName" -Value $env:COMPUTERNAME -Type String -Force
         Set-ItemProperty -Path $winlogonKey -Name "DefaultPassword" -Value $targetPass -Type String -Force
-        Set-ItemProperty -Path $winlogonKey -Name "ForceAutoLogon" -Value "1" -Type String -Force
+        # Remove ForceAutoLogon so screen locking stays locked and does not force immediate desktop return
+        Remove-ItemProperty -Path $winlogonKey -Name "ForceAutoLogon" -ErrorAction SilentlyContinue
         Set-ItemProperty -Path $winlogonKey -Name "LastUsedUsername" -Value $targetUser -Type String -Force
         Remove-ItemProperty -Path $winlogonKey -Name "AutoLogonCount" -ErrorAction SilentlyContinue
-        Write-DefaultsLog "  [OK] Automatic logon active: System will boot directly into '$targetUser' desktop with configured password." "ACTION" ([ConsoleColor]::Green)
+        Write-DefaultsLog "  [OK] Automatic logon active: System boots directly into '$targetUser' desktop with lock screen support." "ACTION" ([ConsoleColor]::Green)
     } catch {
         Write-DefaultsLog "  Warning configuring autologon: $_" "WARN" ([ConsoleColor]::Yellow)
     }
 } else {
     Write-DefaultsLog "  [DryRun] Would configure Winlogon AutoAdminLogon=1 with DefaultPassword for 'User'." "INFO" ([ConsoleColor]::Gray)
+}
+
+# 5. Module 4: Standard Taskbar Layout (Explorer, Firefox, Word, Excel, PowerPoint; Edge, Store, Outlook removed)
+Write-DefaultsLog "[Module 4/4] Configuring standard Taskbar layout across all user profiles..." "INFO" ([ConsoleColor]::Yellow)
+if (-not $DryRun) {
+    try {
+        # 1. Deploy LayoutModification.xml for newly provisioned user profiles
+        $taskbarXml = @"
+<?xml version="1.0" encoding="utf-8"?>
+<LayoutModificationTemplate
+    xmlns="http://schemas.microsoft.com/Start/2014/LayoutModification"
+    xmlns:defaultlayout="http://schemas.microsoft.com/Start/2014/FullDefaultLayout"
+    xmlns:start="http://schemas.microsoft.com/Start/2014/StartLayout"
+    xmlns:taskbar="http://schemas.microsoft.com/Start/2014/TaskbarLayout"
+    Version="1">
+  <CustomTaskbarLayoutCollection PinListPlacement="Replace">
+    <defaultlayout:TaskbarLayout>
+      <taskbar:TaskbarPinList>
+        <taskbar:DesktopApp DesktopApplicationLinkPath="%APPDATA%\Microsoft\Windows\Start Menu\Programs\File Explorer.lnk" />
+        <taskbar:DesktopApp DesktopApplicationLinkPath="%ALLUSERSPROFILE%\Microsoft\Windows\Start Menu\Programs\Firefox.lnk" />
+        <taskbar:DesktopApp DesktopApplicationLinkPath="%ALLUSERSPROFILE%\Microsoft\Windows\Start Menu\Programs\Word.lnk" />
+        <taskbar:DesktopApp DesktopApplicationLinkPath="%ALLUSERSPROFILE%\Microsoft\Windows\Start Menu\Programs\Excel.lnk" />
+        <taskbar:DesktopApp DesktopApplicationLinkPath="%ALLUSERSPROFILE%\Microsoft\Windows\Start Menu\Programs\PowerPoint.lnk" />
+      </taskbar:TaskbarPinList>
+    </defaultlayout:TaskbarLayout>
+  </CustomTaskbarLayoutCollection>
+</LayoutModificationTemplate>
+"@
+        $defaultShell = "C:\Users\Default\AppData\Local\Microsoft\Windows\Shell"
+        if (-not (Test-Path $defaultShell)) { New-Item -ItemType Directory -Path $defaultShell -Force | Out-Null }
+        [System.IO.File]::WriteAllText("$defaultShell\LayoutModification.xml", $taskbarXml, [System.Text.Encoding]::UTF8)
+
+        # 2. Deploy pinned shortcuts directly into all active and existing user profiles
+        $userDirs = Get-ChildItem "C:\Users" -Directory | Where-Object { $_.Name -notin @("All Users", "Default User", "Public") }
+        foreach ($uDir in $userDirs) {
+            $tbDir = Join-Path $uDir.FullName "AppData\Roaming\Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar"
+            if (-not (Test-Path $tbDir)) { New-Item -ItemType Directory -Path $tbDir -Force | Out-Null }
+
+            # Remove unwanted shortcuts (Edge, Store, Outlook, Mail)
+            Get-ChildItem -Path $tbDir -Filter "*Edge*" -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
+            Get-ChildItem -Path $tbDir -Filter "*Store*" -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
+            Get-ChildItem -Path $tbDir -Filter "*Outlook*" -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
+            Get-ChildItem -Path $tbDir -Filter "*Mail*" -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
+
+            # Add required shortcuts
+            $explorerSrc = "$($uDir.FullName)\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\File Explorer.lnk"
+            if (-not (Test-Path $explorerSrc)) {
+                $explorerSrc = "C:\Users\Default\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\File Explorer.lnk"
+            }
+            $copyMap = @(
+                @{ Src = $explorerSrc; Dst = "$tbDir\File Explorer.lnk" },
+                @{ Src = "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Firefox.lnk"; Dst = "$tbDir\Firefox.lnk" },
+                @{ Src = "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Word.lnk"; Dst = "$tbDir\Word.lnk" },
+                @{ Src = "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Excel.lnk"; Dst = "$tbDir\Excel.lnk" },
+                @{ Src = "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\PowerPoint.lnk"; Dst = "$tbDir\PowerPoint.lnk" }
+            )
+            foreach ($map in $copyMap) {
+                if (Test-Path $map.Src) {
+                    Copy-Item -Path $map.Src -Destination $map.Dst -Force -ErrorAction SilentlyContinue
+                }
+            }
+        }
+
+        # 3. Clear Taskband cached pins across loaded user hives so Windows re-evaluates pins
+        Get-ChildItem Registry::HKEY_USERS -ErrorAction SilentlyContinue | Where-Object { $_.PSChildName -match '^S-1-5-21' } | ForEach-Object {
+            $tbKey = "Registry::HKEY_USERS\$($_.PSChildName)\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Taskband"
+            if (Test-Path $tbKey) {
+                Remove-ItemProperty -Path $tbKey -Name "Favorites" -ErrorAction SilentlyContinue
+                Remove-ItemProperty -Path $tbKey -Name "FavoritesResolve" -ErrorAction SilentlyContinue
+            }
+        }
+        Write-DefaultsLog "  [OK] Taskbar configured: Explorer, Firefox, Word, Excel, PowerPoint pinned; Edge, Store, Outlook removed." "ACTION" ([ConsoleColor]::Green)
+    } catch {
+        Write-DefaultsLog "  Warning configuring taskbar layout: $_" "WARN" ([ConsoleColor]::Yellow)
+    }
+} else {
+    Write-DefaultsLog "  [DryRun] Would configure LayoutModification.xml and Taskbar shortcuts." "INFO" ([ConsoleColor]::Gray)
 }
 
 Write-DefaultsLog "==========================================================" "DONE" ([ConsoleColor]::Cyan)

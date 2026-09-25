@@ -203,12 +203,72 @@ try {
     Set-ItemProperty -Path $winlogonKey -Name "DefaultUserName" -Value $targetUsername -Type String -Force
     Set-ItemProperty -Path $winlogonKey -Name "DefaultDomainName" -Value $env:COMPUTERNAME -Type String -Force
     Set-ItemProperty -Path $winlogonKey -Name "DefaultPassword" -Value $targetPass -Type String -Force
-    Set-ItemProperty -Path $winlogonKey -Name "ForceAutoLogon" -Value "1" -Type String -Force
+    Remove-ItemProperty -Path $winlogonKey -Name "ForceAutoLogon" -ErrorAction SilentlyContinue
     Set-ItemProperty -Path $winlogonKey -Name "LastUsedUsername" -Value $targetUsername -Type String -Force
     Remove-ItemProperty -Path $winlogonKey -Name "AutoLogonCount" -ErrorAction SilentlyContinue
     Write-Host "[+] Automatische Windows-Anmeldung für 'User' mit Kennwort aktiviert." -ForegroundColor Green
 } catch {
     Write-Host "[-] Fehler beim Konfigurieren der automatischen Anmeldung: $_" -ForegroundColor Yellow
+}
+
+# 8. Provision Standard Taskbar Layout
+Write-Host "[*] Konfiguriere standardisiertes Taskleisten-Layout..." -ForegroundColor Cyan
+try {
+    $taskbarXml = @"
+<?xml version="1.0" encoding="utf-8"?>
+<LayoutModificationTemplate
+    xmlns="http://schemas.microsoft.com/Start/2014/LayoutModification"
+    xmlns:defaultlayout="http://schemas.microsoft.com/Start/2014/FullDefaultLayout"
+    xmlns:start="http://schemas.microsoft.com/Start/2014/StartLayout"
+    xmlns:taskbar="http://schemas.microsoft.com/Start/2014/TaskbarLayout"
+    Version="1">
+  <CustomTaskbarLayoutCollection PinListPlacement="Replace">
+    <defaultlayout:TaskbarLayout>
+      <taskbar:TaskbarPinList>
+        <taskbar:DesktopApp DesktopApplicationLinkPath="%APPDATA%\Microsoft\Windows\Start Menu\Programs\File Explorer.lnk" />
+        <taskbar:DesktopApp DesktopApplicationLinkPath="%ALLUSERSPROFILE%\Microsoft\Windows\Start Menu\Programs\Firefox.lnk" />
+        <taskbar:DesktopApp DesktopApplicationLinkPath="%ALLUSERSPROFILE%\Microsoft\Windows\Start Menu\Programs\Word.lnk" />
+        <taskbar:DesktopApp DesktopApplicationLinkPath="%ALLUSERSPROFILE%\Microsoft\Windows\Start Menu\Programs\Excel.lnk" />
+        <taskbar:DesktopApp DesktopApplicationLinkPath="%ALLUSERSPROFILE%\Microsoft\Windows\Start Menu\Programs\PowerPoint.lnk" />
+      </taskbar:TaskbarPinList>
+    </defaultlayout:TaskbarLayout>
+  </CustomTaskbarLayoutCollection>
+</LayoutModificationTemplate>
+"@
+    $defaultShell = "C:\Users\Default\AppData\Local\Microsoft\Windows\Shell"
+    if (-not (Test-Path $defaultShell)) { New-Item -ItemType Directory -Path $defaultShell -Force | Out-Null }
+    [System.IO.File]::WriteAllText("$defaultShell\LayoutModification.xml", $taskbarXml, [System.Text.Encoding]::UTF8)
+
+    $userDirs = Get-ChildItem "C:\Users" -Directory | Where-Object { $_.Name -notin @("All Users", "Default User", "Public") }
+    foreach ($uDir in $userDirs) {
+        $tbDir = Join-Path $uDir.FullName "AppData\Roaming\Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar"
+        if (-not (Test-Path $tbDir)) { New-Item -ItemType Directory -Path $tbDir -Force | Out-Null }
+
+        Get-ChildItem -Path $tbDir -Filter "*Edge*" -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
+        Get-ChildItem -Path $tbDir -Filter "*Store*" -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
+        Get-ChildItem -Path $tbDir -Filter "*Outlook*" -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
+        Get-ChildItem -Path $tbDir -Filter "*Mail*" -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
+
+        $explorerSrc = "$($uDir.FullName)\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\File Explorer.lnk"
+        if (-not (Test-Path $explorerSrc)) {
+            $explorerSrc = "C:\Users\Default\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\File Explorer.lnk"
+        }
+        $copyMap = @(
+            @{ Src = $explorerSrc; Dst = "$tbDir\File Explorer.lnk" },
+            @{ Src = "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Firefox.lnk"; Dst = "$tbDir\Firefox.lnk" },
+            @{ Src = "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Word.lnk"; Dst = "$tbDir\Word.lnk" },
+            @{ Src = "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Excel.lnk"; Dst = "$tbDir\Excel.lnk" },
+            @{ Src = "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\PowerPoint.lnk"; Dst = "$tbDir\PowerPoint.lnk" }
+        )
+        foreach ($map in $copyMap) {
+            if (Test-Path $map.Src) {
+                Copy-Item -Path $map.Src -Destination $map.Dst -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
+    Write-Host "[+] Taskleisten-Layout konfiguriert (Explorer, Firefox, Office angeheftet; Edge, Store, Outlook entfernt)." -ForegroundColor Green
+} catch {
+    Write-Host "[-] Fehler beim Konfigurieren des Taskleisten-Layouts: $_" -ForegroundColor Yellow
 }
 
 Write-Host "==============================================================" -ForegroundColor Cyan

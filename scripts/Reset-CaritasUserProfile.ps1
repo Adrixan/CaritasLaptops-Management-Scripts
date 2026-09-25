@@ -213,7 +213,49 @@ if (-not $DryRun) {
         Remove-Item -Path "C:\ProgramData\SquirrelMachineInstalls\Discord.exe" -Force -ErrorAction SilentlyContinue
     }
 
-    Write-ResetLog "  [OK] Registrierung, Profilordner und Autostart-Reste bereinigt." "INFO" ([ConsoleColor]::Green)
+    # Ensure Firefox autostart Run hooks are scrubbed machine-wide and across user hives
+    $runHives = @(
+        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run",
+        "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Run"
+    )
+    Get-ChildItem Registry::HKEY_USERS -ErrorAction SilentlyContinue | Where-Object { $_.PSChildName -match '^S-1-5-21' } | ForEach-Object {
+        $runHives += "Registry::HKEY_USERS\$($_.PSChildName)\SOFTWARE\Microsoft\Windows\CurrentVersion\Run"
+    }
+    foreach ($rh in $runHives) {
+        if (Test-Path $rh) {
+            (Get-ItemProperty $rh -ErrorAction SilentlyContinue).PSObject.Properties | Where-Object { $_.Name -like "*Firefox*" } | ForEach-Object {
+                Remove-ItemProperty -Path $rh -Name $_.Name -ErrorAction SilentlyContinue | Out-Null
+            }
+        }
+    }
+
+    # Ensure clean standard Taskbar LayoutModification.xml is in Default profile template
+    $defaultShell = "C:\Users\Default\AppData\Local\Microsoft\Windows\Shell"
+    if (-not (Test-Path $defaultShell)) { New-Item -ItemType Directory -Path $defaultShell -Force | Out-Null }
+    $taskbarXml = @"
+<?xml version="1.0" encoding="utf-8"?>
+<LayoutModificationTemplate
+    xmlns="http://schemas.microsoft.com/Start/2014/LayoutModification"
+    xmlns:defaultlayout="http://schemas.microsoft.com/Start/2014/FullDefaultLayout"
+    xmlns:start="http://schemas.microsoft.com/Start/2014/StartLayout"
+    xmlns:taskbar="http://schemas.microsoft.com/Start/2014/TaskbarLayout"
+    Version="1">
+  <CustomTaskbarLayoutCollection PinListPlacement="Replace">
+    <defaultlayout:TaskbarLayout>
+      <taskbar:TaskbarPinList>
+        <taskbar:DesktopApp DesktopApplicationLinkPath="%APPDATA%\Microsoft\Windows\Start Menu\Programs\File Explorer.lnk" />
+        <taskbar:DesktopApp DesktopApplicationLinkPath="%ALLUSERSPROFILE%\Microsoft\Windows\Start Menu\Programs\Firefox.lnk" />
+        <taskbar:DesktopApp DesktopApplicationLinkPath="%ALLUSERSPROFILE%\Microsoft\Windows\Start Menu\Programs\Word.lnk" />
+        <taskbar:DesktopApp DesktopApplicationLinkPath="%ALLUSERSPROFILE%\Microsoft\Windows\Start Menu\Programs\Excel.lnk" />
+        <taskbar:DesktopApp DesktopApplicationLinkPath="%ALLUSERSPROFILE%\Microsoft\Windows\Start Menu\Programs\PowerPoint.lnk" />
+      </taskbar:TaskbarPinList>
+    </defaultlayout:TaskbarLayout>
+  </CustomTaskbarLayoutCollection>
+</LayoutModificationTemplate>
+"@
+    [System.IO.File]::WriteAllText("$defaultShell\LayoutModification.xml", $taskbarXml, [System.Text.Encoding]::UTF8)
+
+    Write-ResetLog "  [OK] Registrierung, Profilordner, Autostart-Reste und Taskleisten-Vorlage bereinigt." "INFO" ([ConsoleColor]::Green)
 } else {
     Write-ResetLog "  [DryRun] Würde ProfileList-Schlüssel bereinigen und C:\Users\$TargetUsername entfernen." "INFO" ([ConsoleColor]::Gray)
 }
@@ -254,7 +296,7 @@ if (-not $DryRun) {
     Set-ItemProperty -Path $winlogonKey -Name "DefaultUserName" -Value $TargetUsername -Type String -Force
     Set-ItemProperty -Path $winlogonKey -Name "DefaultDomainName" -Value $env:COMPUTERNAME -Type String -Force
     Set-ItemProperty -Path $winlogonKey -Name "DefaultPassword" -Value $UserPassword -Type String -Force
-    Set-ItemProperty -Path $winlogonKey -Name "ForceAutoLogon" -Value "1" -Type String -Force
+    Remove-ItemProperty -Path $winlogonKey -Name "ForceAutoLogon" -ErrorAction SilentlyContinue
     Set-ItemProperty -Path $winlogonKey -Name "LastUsedUsername" -Value $TargetUsername -Type String -Force
     Remove-ItemProperty -Path $winlogonKey -Name "AutoLogonCount" -ErrorAction SilentlyContinue
 

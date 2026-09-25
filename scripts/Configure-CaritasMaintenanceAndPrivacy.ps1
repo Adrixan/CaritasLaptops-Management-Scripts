@@ -8,7 +8,7 @@
        - Disables password saving and autofill across Mozilla Firefox, Google Chrome, and Microsoft Edge.
        - Disables payment card and physical address autofill.
        - Suppresses commercial news feeds, promotional widgets, and telemetry.
-       - Configures a clean, privacy-respecting search homepage (DuckDuckGo).
+       - Configures a clean, privacy-respecting search homepage (Brave Search).
     2. Removable Storage Execution Lockdown (USB Hygiene):
        - Blocks execution of binaries (.exe, .scr, .bat, scripts) from USB flash drives.
        - Preserves full read and write access for documents, PDFs, pictures, and media.
@@ -126,6 +126,7 @@ if (-not $SkipBrowserPrivacy) {
         # Unified Policy Payload ensuring uBlock Origin, Credential Defense, and First-Run Bypass
         $ffPolicyPayload = @{
             policies = @{
+                SkipTermsOfUse = $true
                 DontCheckDefaultBrowser = $true
                 OverrideFirstRunPage = ""
                 OverridePostUpdatePage = ""
@@ -134,14 +135,16 @@ if (-not $SkipBrowserPrivacy) {
                 DisableFirefoxStudies = $true
                 DisableTelemetry = $true
                 DisablePocket = $true
+                DisableFirefoxScreens = $true
+                WindowsLaunchOnLogin = $false
                 PromptForDownloadLocation = $false
                 PasswordManagerEnabled = $false
                 OfferToSaveLogins = $false
                 AutofillAddressEnabled = $false
                 AutofillCreditCardEnabled = $false
                 Homepage = @{
-                    URL = "https://duckduckgo.com"
-                    Locked = $false
+                    URL = "https://search.brave.com"
+                    Locked = $true
                     StartPage = "homepage"
                 }
                 FirefoxHome = @{
@@ -156,14 +159,24 @@ if (-not $SkipBrowserPrivacy) {
                 }
                 Preferences = @{
                     "browser.aboutwelcome.enabled" = @{ Value = $false; Status = "locked" }
+                    "browser.aboutwelcome.screens" = @{ Value = ""; Status = "locked" }
                     "browser.startup.homepage_welcome_url" = @{ Value = ""; Status = "locked" }
                     "browser.startup.homepage_welcome_url.additional" = @{ Value = ""; Status = "locked" }
+                    "startup.homepage_welcome_url" = @{ Value = ""; Status = "locked" }
+                    "startup.homepage_welcome_url.additional" = @{ Value = ""; Status = "locked" }
                     "trailhead.firstrun.didSeeAboutWelcome" = @{ Value = $true; Status = "locked" }
+                    "trailhead.firstrun.branches" = @{ Value = "nofirstrun"; Status = "locked" }
+                    "browser.startup.firstrunSkipsHomepage" = @{ Value = $false; Status = "locked" }
+                    "browser.startup.homepage_override.mstone" = @{ Value = "ignore"; Status = "locked" }
+                    "browser.startup.page" = @{ Value = 1; Status = "locked" }
+                    "browser.startup.homepage" = @{ Value = "https://search.brave.com"; Status = "locked" }
                     "browser.shell.checkDefaultBrowser" = @{ Value = $false; Status = "locked" }
                     "browser.startup.windowsLaunchOnLogin.enabled" = @{ Value = $false; Status = "locked" }
+                    "browser.startup.windowsLaunchOnLogin.disable" = @{ Value = $true; Status = "locked" }
                     "doh-rollout.doneFirstRun" = @{ Value = $true; Status = "locked" }
                     "app.shield.optoutstudies.enabled" = @{ Value = $false; Status = "locked" }
                     "datareporting.policy.dataSubmissionPolicyAcceptedVersion" = @{ Value = 2; Status = "locked" }
+                    "browser.newtabpage.activity-stream.aboutwelcome.show" = @{ Value = $false; Status = "locked" }
                     "browser.newtabpage.activity-stream.asrouter.userprefs.cfr.addons" = @{ Value = $false; Status = "locked" }
                     "browser.newtabpage.activity-stream.asrouter.userprefs.cfr.features" = @{ Value = $false; Status = "locked" }
                     "browser.tabs.warnOnClose" = @{ Value = $false; Status = "default" }
@@ -188,7 +201,36 @@ if (-not $SkipBrowserPrivacy) {
             if (-not (Test-Path $distDir)) { New-Item -ItemType Directory -Path $distDir -Force | Out-Null }
             $updatedJson = $ffPolicyPayload | ConvertTo-Json -Depth 10
             [System.IO.File]::WriteAllText($policiesPath, $updatedJson, [System.Text.Encoding]::UTF8)
-            Write-MaintLog "    [APPLIED] Updated Firefox distribution/policies.json (uBlock Origin + Credential Defense + First-Run Bypass)." "ACTION" ([ConsoleColor]::Green)
+            Write-MaintLog "    [APPLIED] Updated Firefox distribution/policies.json (Brave Search + uBlock Origin + First-Run Bypass)." "ACTION" ([ConsoleColor]::Green)
+
+            # Deploy autoconfig & firefox.cfg to guarantee first-run bypass
+            $prefDir = Join-Path $ffDir "defaults\pref"
+            if (-not (Test-Path $prefDir)) { New-Item -ItemType Directory -Path $prefDir -Force | Out-Null }
+            $autoJs = "pref(`"general.config.filename`", `"firefox.cfg`");`r`npref(`"general.config.obscure_value`", 0);`r`n"
+            [System.IO.File]::WriteAllText((Join-Path $prefDir "autoconfig.js"), $autoJs, [System.Text.Encoding]::UTF8)
+
+            $ffCfgContent = @"
+// First line must be a comment
+lockPref("trailhead.firstrun.branches", "nofirstrun-empty");
+lockPref("trailhead.firstrun.didSeeAboutWelcome", true);
+lockPref("browser.aboutwelcome.enabled", false);
+lockPref("browser.aboutwelcome.screens", "");
+lockPref("browser.startup.firstrunSkipsHomepage", false);
+lockPref("browser.startup.homepage_override.mstone", "ignore");
+lockPref("browser.startup.page", 1);
+lockPref("browser.startup.homepage", "https://search.brave.com");
+lockPref("browser.newtabpage.activity-stream.aboutwelcome.show", false);
+lockPref("browser.startup.windowsLaunchOnLogin.enabled", false);
+lockPref("browser.startup.windowsLaunchOnLogin.disable", true);
+lockPref("browser.shell.checkDefaultBrowser", false);
+lockPref("browser.startup.homepage_welcome_url", "");
+lockPref("browser.startup.homepage_welcome_url.additional", "");
+lockPref("startup.homepage_welcome_url", "");
+lockPref("startup.homepage_welcome_url.additional", "");
+lockPref("browser.uitour.enabled", false);
+lockPref("doh-rollout.doneFirstRun", true);
+"@
+            [System.IO.File]::WriteAllText((Join-Path $ffDir "firefox.cfg"), $ffCfgContent, [System.Text.Encoding]::UTF8)
 
             # Scrub any Mozilla-Firefox autostart entries across all Run keys
             $runLocations = @(
@@ -209,10 +251,11 @@ if (-not $SkipBrowserPrivacy) {
                 }
             }
 
-            # Disable Firefox background scheduled tasks
+            # Disable and remove Firefox background scheduled tasks
             Get-ScheduledTask | Where-Object { ($_.TaskName -like "*Firefox*") -or ($_.TaskPath -like "*Mozilla*") } | ForEach-Object {
                 Disable-ScheduledTask -TaskName $_.TaskName -ErrorAction SilentlyContinue | Out-Null
-                Write-MaintLog "    Disabled Firefox scheduled task: $($_.TaskName)." "ACTION" ([ConsoleColor]::Yellow)
+                Unregister-ScheduledTask -TaskName $_.TaskName -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
+                Write-MaintLog "    Removed Firefox scheduled task: $($_.TaskName)." "ACTION" ([ConsoleColor]::Yellow)
             }
         } else {
             Write-MaintLog "    [DryRun] Would update Firefox policies.json with uBlock Origin, credential defense, and first-run bypass." "INFO" ([ConsoleColor]::Gray)
@@ -221,6 +264,9 @@ if (-not $SkipBrowserPrivacy) {
 
     # Firefox Registry Policies
     $ffRegPath = "HKLM:\SOFTWARE\Policies\Mozilla\Firefox"
+    Set-RegistryPolicy -Path $ffRegPath -Name "SkipTermsOfUse" -Value 1 -Description "Firefox: Suppress Terms of Use"
+    Set-RegistryPolicy -Path $ffRegPath -Name "DisableFirefoxScreens" -Value 1 -Description "Firefox: Suppress First Run Screens"
+    Set-RegistryPolicy -Path $ffRegPath -Name "WindowsLaunchOnLogin" -Value 0 -Description "Firefox: Disable Launch on Windows Login"
     Set-RegistryPolicy -Path $ffRegPath -Name "PasswordManagerEnabled" -Value 0 -Description "Firefox: Disable Password Manager"
     Set-RegistryPolicy -Path $ffRegPath -Name "OfferToSaveLogins" -Value 0 -Description "Firefox: Disable Login Save Prompts"
     Set-RegistryPolicy -Path $ffRegPath -Name "DisablePocket" -Value 1 -Description "Firefox: Disable Pocket Feed"
@@ -229,6 +275,9 @@ if (-not $SkipBrowserPrivacy) {
     Set-RegistryPolicy -Path $ffRegPath -Name "DisableProfileImport" -Value 1 -Description "Firefox: Disable Profile Import Prompt"
     Set-RegistryPolicy -Path $ffRegPath -Name "OverrideFirstRunPage" -Value "" -PropertyType "String" -Description "Firefox: Suppress First Run Page"
     Set-RegistryPolicy -Path $ffRegPath -Name "OverridePostUpdatePage" -Value "" -PropertyType "String" -Description "Firefox: Suppress Post Update Page"
+    Set-RegistryPolicy -Path "$ffRegPath\Homepage" -Name "URL" -Value "https://search.brave.com" -PropertyType "String" -Description "Firefox: Set Brave Search Homepage"
+    Set-RegistryPolicy -Path "$ffRegPath\Homepage" -Name "Locked" -Value 1 -Description "Firefox: Lock Homepage"
+    Set-RegistryPolicy -Path "$ffRegPath\Homepage" -Name "StartPage" -Value "homepage" -PropertyType "String" -Description "Firefox: Start Page Homepage"
 
     # B. Google Chrome
     Write-MaintLog "  Configuring Google Chrome Policies..." "INFO" ([ConsoleColor]::Yellow)
@@ -236,8 +285,11 @@ if (-not $SkipBrowserPrivacy) {
     Set-RegistryPolicy -Path $chromeRegPath -Name "PasswordManagerEnabled" -Value 0 -Description "Chrome: Disable Password Manager"
     Set-RegistryPolicy -Path $chromeRegPath -Name "AutofillAddressEnabled" -Value 0 -Description "Chrome: Disable Address Autofill"
     Set-RegistryPolicy -Path $chromeRegPath -Name "AutofillCreditCardEnabled" -Value 0 -Description "Chrome: Disable Credit Card Autofill"
-    Set-RegistryPolicy -Path $chromeRegPath -Name "HomepageLocation" -Value "https://duckduckgo.com" -PropertyType "String" -Description "Chrome: Set DuckDuckGo Homepage"
-    Set-RegistryPolicy -Path $chromeRegPath -Name "HomepageIsNewTabPage" -Value 1 -Description "Chrome: Use Homepage on New Tab"
+    Set-RegistryPolicy -Path $chromeRegPath -Name "HomepageLocation" -Value "https://search.brave.com" -PropertyType "String" -Description "Chrome: Set Brave Search Homepage"
+    Set-RegistryPolicy -Path $chromeRegPath -Name "HomepageIsNewTabPage" -Value 0 -Description "Chrome: Open Homepage on Startup"
+    Set-RegistryPolicy -Path $chromeRegPath -Name "RestoreOnStartup" -Value 4 -Description "Chrome: Restore Specific URLs on Startup"
+    Set-RegistryPolicy -Path "$chromeRegPath\RestoreOnStartupURLs" -Name "1" -Value "https://search.brave.com" -PropertyType "String" -Description "Chrome: Startup URL Brave Search"
+    Set-RegistryPolicy -Path $chromeRegPath -Name "NewTabPageLocation" -Value "https://search.brave.com" -PropertyType "String" -Description "Chrome: New Tab Page Brave Search"
     Set-RegistryPolicy -Path $chromeRegPath -Name "ShowHomeButton" -Value 1 -Description "Chrome: Show Home Button"
     Set-RegistryPolicy -Path $chromeRegPath -Name "PromotionalTabsEnabled" -Value 0 -Description "Chrome: Disable Promotional Tabs"
     Set-RegistryPolicy -Path $chromeRegPath -Name "MetricsReportingEnabled" -Value 0 -Description "Chrome: Disable Metrics Reporting"
@@ -248,8 +300,11 @@ if (-not $SkipBrowserPrivacy) {
     Set-RegistryPolicy -Path $edgeRegPath -Name "PasswordManagerEnabled" -Value 0 -Description "Edge: Disable Password Manager"
     Set-RegistryPolicy -Path $edgeRegPath -Name "AutofillAddressEnabled" -Value 0 -Description "Edge: Disable Address Autofill"
     Set-RegistryPolicy -Path $edgeRegPath -Name "AutofillCreditCardEnabled" -Value 0 -Description "Edge: Disable Credit Card Autofill"
-    Set-RegistryPolicy -Path $edgeRegPath -Name "HomepageLocation" -Value "https://duckduckgo.com" -PropertyType "String" -Description "Edge: Set DuckDuckGo Homepage"
-    Set-RegistryPolicy -Path $edgeRegPath -Name "HomepageIsNewTabPage" -Value 1 -Description "Edge: Use Homepage on New Tab"
+    Set-RegistryPolicy -Path $edgeRegPath -Name "HomepageLocation" -Value "https://search.brave.com" -PropertyType "String" -Description "Edge: Set Brave Search Homepage"
+    Set-RegistryPolicy -Path $edgeRegPath -Name "HomepageIsNewTabPage" -Value 0 -Description "Edge: Open Homepage on Startup"
+    Set-RegistryPolicy -Path $edgeRegPath -Name "RestoreOnStartup" -Value 4 -Description "Edge: Restore Specific URLs on Startup"
+    Set-RegistryPolicy -Path "$edgeRegPath\RestoreOnStartupURLs" -Name "1" -Value "https://search.brave.com" -PropertyType "String" -Description "Edge: Startup URL Brave Search"
+    Set-RegistryPolicy -Path $edgeRegPath -Name "NewTabPageLocation" -Value "https://search.brave.com" -PropertyType "String" -Description "Edge: New Tab Page Brave Search"
     Set-RegistryPolicy -Path $edgeRegPath -Name "ShowHomeButton" -Value 1 -Description "Edge: Show Home Button"
     Set-RegistryPolicy -Path $edgeRegPath -Name "NewTabPageContentEnabled" -Value 0 -Description "Edge: Disable MSN News Feed on New Tab"
     Set-RegistryPolicy -Path $edgeRegPath -Name "HideFirstRunExperience" -Value 1 -Description "Edge: Suppress First Run Wizard"
