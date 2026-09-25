@@ -119,26 +119,94 @@ foreach ($dPath in $adminProfiles) {
     }
 }
 
-# 6. Configure Automatic Logon for Standard Account 'User'
-Write-Host "[*] Konfiguriere automatische Anmeldung (Autologon) für Benutzer 'User'..." -ForegroundColor Cyan
+# 6. Uninstall Discord & Discord System Helper
+Write-Host "[*] Bereinige Discord und Discord System Helper..." -ForegroundColor Cyan
 try {
-    $localUser = Get-LocalUser -Name "User" -ErrorAction SilentlyContinue
-    if (-not $localUser) {
-        New-LocalUser -Name "User" -Description "Standard-Gastkonto" -NoPassword -ErrorAction SilentlyContinue | Out-Null
+    # 6.1 Terminate active Discord processes
+    Get-Process -Name "*discord*", "*DiscordSystemHelper*" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Milliseconds 500
+
+    # 6.2 Remove machine-wide Run keys (Squirrel autostart on every user logon)
+    Remove-ItemProperty -Path "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Run" -Name "Discord" -ErrorAction SilentlyContinue
+    Remove-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" -Name "Discord" -ErrorAction SilentlyContinue
+
+    # 6.3 Remove machine-wide Squirrel installer files
+    if (Test-Path "C:\ProgramData\SquirrelMachineInstalls\Discord.exe") {
+        Remove-Item -Path "C:\ProgramData\SquirrelMachineInstalls\Discord.exe" -Force -ErrorAction SilentlyContinue
     }
-    Set-LocalUser -Name "User" -PasswordNeverExpires $true -ErrorAction SilentlyContinue | Out-Null
+    if ((Test-Path "C:\ProgramData\SquirrelMachineInstalls") -and ((Get-ChildItem "C:\ProgramData\SquirrelMachineInstalls" -ErrorAction SilentlyContinue).Count -eq 0)) {
+        Remove-Item -Path "C:\ProgramData\SquirrelMachineInstalls" -Force -Recurse -ErrorAction SilentlyContinue
+    }
+
+    # 6.4 Clean per-user Run keys and Uninstall entries across all loaded hives
+    Get-ChildItem Registry::HKEY_USERS -ErrorAction SilentlyContinue | ForEach-Object {
+        $sid = $_.PSChildName
+        $runKey = "Registry::HKEY_USERS\$sid\SOFTWARE\Microsoft\Windows\CurrentVersion\Run"
+        if (Test-Path $runKey) {
+            Remove-ItemProperty -Path $runKey -Name "Discord" -ErrorAction SilentlyContinue
+            Remove-ItemProperty -Path $runKey -Name "DiscordSystemHelper" -ErrorAction SilentlyContinue
+        }
+        $uninstKey = "Registry::HKEY_USERS\$sid\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Discord"
+        if (Test-Path $uninstKey) {
+            Remove-Item -Path $uninstKey -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    # 6.5 Execute native per-user uninstaller if present
+    Get-ChildItem -Path "C:\Users\*\AppData\Local\Discord\Update.exe" -ErrorAction SilentlyContinue | ForEach-Object {
+        Start-Process -FilePath $_.FullName -ArgumentList "--uninstall", "-s" -Wait -NoNewWindow -ErrorAction SilentlyContinue
+    }
+
+    # 6.6 Uninstall via winget if registered
+    $winget = (Get-Command "winget" -ErrorAction SilentlyContinue).Source
+    if (-not $winget) {
+        $winget = (Get-ChildItem "C:\Users\*\AppData\Local\Microsoft\WindowsApps\winget.exe" -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
+    }
+    if ($winget -and (Test-Path $winget)) {
+        & $winget uninstall --id "XPDC2RH70K22MN" --silent --accept-source-agreements 2>$null | Out-Null
+        & $winget uninstall --id "Discord.Discord" --silent --accept-source-agreements 2>$null | Out-Null
+    }
+
+    # 6.7 Kill any remaining processes and wipe directories and shortcuts
+    Get-Process -Name "*discord*", "*DiscordSystemHelper*" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    Get-ChildItem -Path "C:\Users\*\AppData\Local\Discord*" -Directory -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+    Get-ChildItem -Path "C:\Users\*\AppData\Roaming\*discord*" -Directory -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+    Get-ChildItem -Path "C:\Users\*\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\*discord*" -Recurse -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+    Get-ChildItem -Path "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\*discord*" -Recurse -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+    Get-ChildItem -Path "C:\Users\*\Desktop\*discord*.lnk" -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
+    Get-ChildItem -Path "C:\Users\Public\Desktop\*discord*.lnk" -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
+
+    Write-Host "[+] Discord und Discord System Helper erfolgreich deinstalliert und bereinigt." -ForegroundColor Green
+} catch {
+    Write-Host "[-] Warnung bei der Discord-Bereinigung: $_" -ForegroundColor Yellow
+}
+
+# 7. Configure Automatic Logon for Standard Account 'User'
+Write-Host "[*] Konfiguriere Benutzerkonto 'User' und automatische Anmeldung (Autologon)..." -ForegroundColor Cyan
+try {
+    $targetUsername = "User"
+    $targetPass = "Caritas2412!"
+    $secPass = ConvertTo-SecureString $targetPass -AsPlainText -Force
+
+    $localUser = Get-LocalUser -Name $targetUsername -ErrorAction SilentlyContinue
+    if (-not $localUser) {
+        New-LocalUser -Name $targetUsername -Description "Standard-Gastkonto" -Password $secPass -ErrorAction SilentlyContinue | Out-Null
+    } else {
+        Set-LocalUser -Name $targetUsername -Password $secPass -ErrorAction SilentlyContinue | Out-Null
+    }
+    Set-LocalUser -Name $targetUsername -PasswordNeverExpires $true -UserMayChangePassword $true -ErrorAction SilentlyContinue | Out-Null
     $usersGroupName = (Get-LocalGroup | Where-Object { $_.SID.Value -eq "S-1-5-32-545" }).Name
-    Add-LocalGroupMember -Group $usersGroupName -Member "User" -ErrorAction SilentlyContinue
+    Add-LocalGroupMember -Group $usersGroupName -Member $targetUsername -ErrorAction SilentlyContinue
 
     $winlogonKey = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
     Set-ItemProperty -Path $winlogonKey -Name "AutoAdminLogon" -Value "1" -Type String -Force
-    Set-ItemProperty -Path $winlogonKey -Name "DefaultUserName" -Value "User" -Type String -Force
+    Set-ItemProperty -Path $winlogonKey -Name "DefaultUserName" -Value $targetUsername -Type String -Force
     Set-ItemProperty -Path $winlogonKey -Name "DefaultDomainName" -Value $env:COMPUTERNAME -Type String -Force
-    Set-ItemProperty -Path $winlogonKey -Name "DefaultPassword" -Value "" -Type String -Force
+    Set-ItemProperty -Path $winlogonKey -Name "DefaultPassword" -Value $targetPass -Type String -Force
     Set-ItemProperty -Path $winlogonKey -Name "ForceAutoLogon" -Value "1" -Type String -Force
-    Set-ItemProperty -Path $winlogonKey -Name "LastUsedUsername" -Value "User" -Type String -Force
+    Set-ItemProperty -Path $winlogonKey -Name "LastUsedUsername" -Value $targetUsername -Type String -Force
     Remove-ItemProperty -Path $winlogonKey -Name "AutoLogonCount" -ErrorAction SilentlyContinue
-    Write-Host "[+] Automatische Windows-Anmeldung für 'User' aktiviert." -ForegroundColor Green
+    Write-Host "[+] Automatische Windows-Anmeldung für 'User' mit Kennwort aktiviert." -ForegroundColor Green
 } catch {
     Write-Host "[-] Fehler beim Konfigurieren der automatischen Anmeldung: $_" -ForegroundColor Yellow
 }

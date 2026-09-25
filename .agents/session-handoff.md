@@ -29,22 +29,39 @@
   - Fixed in-place update version comparison to strictly check if remote version is newer via System.Version.
   - Replaced anonymous pipe streaming with file-redirected process execution and shared reading (FileShare.ReadWrite), eliminating all pipe deadlocks.
   - Enhanced script verbosity with explicit numbered stages ([Schritt 1/6] to [Schritt 6/6]).
+- Patron Password Synchronization & Discord Eradication (v1.0.7):
+  - Addressed "password is wrong" error when resetting account 'User': synchronized local SAM account password to 'Caritas2412!' and updated Winlogon DefaultPassword across Install-CaritasEnvironment.ps1, Reset-CaritasUserProfile.ps1, and Configure-CaritasDefaults.ps1.
+  - Eradicated Discord and Discord System Helper: identified machine-wide Squirrel installer at C:\ProgramData\SquirrelMachineInstalls\Discord.exe invoked via HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Run on every logon. Built full purge routines into Install-CaritasEnvironment.ps1, Reset-CaritasUserProfile.ps1, and Sync-CaritasSoftware.ps1.
 
 ## 2. Active Intent & Delivered Artifacts
 All modules, launchers, and deployment artifacts are authored, validated, and verified on the target hardware (`CARITAS-X1-1`, Windows 11 Pro 64-bit):
 
-1. **UTF-8 with Byte Order Mark (BOM) Standardization:**
+1. **Patron Password Synchronization & Auto-Logon:**
+   - Scripts: `setup/Install-CaritasEnvironment.ps1`, `scripts/Reset-CaritasUserProfile.ps1`, `scripts/Configure-CaritasDefaults.ps1`.
+   - Local SAM user `User` configured with password `Caritas2412!` (`PasswordNeverExpires = $true`).
+   - Winlogon credentials stamped with `AutoAdminLogon = 1`, `DefaultUserName = User`, `DefaultPassword = Caritas2412!`, `ForceAutoLogon = 1`.
+   - Verified active and authenticated via .NET PrincipalContext on `CARITAS-X1-1`.
+
+2. **Discord & Discord System Helper Complete Eradication:**
+   - Scripts: `setup/Install-CaritasEnvironment.ps1`, `scripts/Sync-CaritasSoftware.ps1`, `scripts/Reset-CaritasUserProfile.ps1`.
+   - Eliminates machine-wide installer `C:\ProgramData\SquirrelMachineInstalls\Discord.exe`.
+   - Scrubs autostart `Run` registry keys in `HKLM:\SOFTWARE\WOW6432Node\...` and `HKLM:\SOFTWARE\...`.
+   - Uninstalls per-user installations across `C:\Users\*\AppData\Local\Discord` and `Roaming\discord`.
+   - Scrubs desktop and Start Menu shortcuts across all user profiles and Public.
+   - Verified 0 processes, 0 installer files, and 0 registry keys on `CARITAS-X1-1`.
+
+3. **UTF-8 with Byte Order Mark (BOM) Standardization:**
    - Files: All 10 PowerShell scripts in `scripts/` and `setup/` prepended with standard 3-byte UTF-8 BOM (`0xEF, 0xBB, 0xBF`).
    - Guarantees Windows PowerShell 5.1 (`powershell.exe`) and PowerShell 7+ reliably recognize UTF-8 encoding across all Windows language editions.
    - Eliminates all mojibake in XAML string parsing, WPF Window construction, button labels, cards, text blocks, tooltips, and MessageBox dialogue boxes.
 
-2. **Console & Pipeline UTF-8 Stream Synchronization:**
+4. **Console & Pipeline UTF-8 Stream Synchronization:**
    - Script: `scripts/Caritas-ControlCenter-GUI.ps1`, `scripts/Caritas-ControlCenter.ps1`, `setup/Install-CaritasEnvironment.ps1`, and all module scripts.
    - Configured `[Console]::OutputEncoding = [System.Text.Encoding]::UTF8` and `$OutputEncoding = [System.Text.Encoding]::UTF8` at script initialization.
    - Asynchronous Engine: Configured `$psi.StandardOutputEncoding = [System.Text.Encoding]::UTF8` in `Start-AsyncScript`, and injected UTF-8 console output encoding into child PowerShell process invocations to guarantee live console output stream decoding without corruption.
    - Log Writing: Added `-Encoding UTF8` to all `Add-Content` calls in logging functions (`Write-CCLog`, `Write-SyncLog`, `Write-HardeningLog`, `Write-DefaultsLog`, `Write-UserResetLog`, `Write-MaintLog`).
 
-3. **OOBE Privacy Setup Suppression & Privacy Defaults:**
+5. **OOBE Privacy Setup Suppression & Privacy Defaults:**
    - Script: `scripts/Configure-CaritasHardening.ps1`
    - OOBE Suppression: Configured `DisablePrivacyExperience = 1` in `HKLM:\SOFTWARE\Policies\Microsoft\Windows\OOBE`, `HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System`, and `HKLM:\SOFTWARE\Policies\Microsoft\Windows\System`.
    - Animation & SCOOBE Bypass: Set `EnableFirstLogonAnimation = 0`, `ScoobeSystemSettingEnabled = 0`, `ShowWindowsProvider = 0`, and `RestartApps = 0` (preventing automatic reopening of apps on sign-in).
@@ -52,50 +69,35 @@ All modules, launchers, and deployment artifacts are authored, validated, and ve
    - Find My Device & Speech: Set `AllowFindMyDevice = 0` and `AllowSpeechModelUpdate = 0`.
    - Hive Stamping: Automatically stamped privacy acceptance flags and disabled Content Delivery Manager suggestions across `.DEFAULT` and all active user registry hives (`S-1-5-21*`).
 
-4. **Firefox Enterprise Pre-Configuration & Autostart Suppression:**
+6. **Firefox Enterprise Pre-Configuration & Autostart Suppression:**
    - Scripts: `scripts/Configure-CaritasDefaults.ps1`, `scripts/Configure-CaritasMaintenanceAndPrivacy.ps1`
    - Enterprise Policies: Deployed `C:\Program Files\Mozilla Firefox\distribution\policies.json` and mirrored HKLM registry policies locking `browser.aboutwelcome.enabled: false`, `trailhead.firstrun.didSeeAboutWelcome: true`, `doh-rollout.doneFirstRun: true`, `OverrideFirstRunPage: ""`, `OverridePostUpdatePage: ""`, `DontCheckDefaultBrowser: 1`, `DisableProfileImport: 1`, `DisablePocket: 1`, and `DisableTelemetry: 1`.
    - Autostart Lockdown: Locked `browser.startup.windowsLaunchOnLogin.enabled: false`. Scrubbed Firefox autostart entries from `Run` keys across HKLM, WOW6432Node, HKCU, and all mounted user hives (`S-1-5-21*`). Disabled Firefox background maintenance scheduled tasks.
 
-5. **Desktop Shortcut Launcher & Quoting Fix:**
+7. **Desktop Shortcut Launcher & Quoting Fix:**
    - Files: `Caritas-Verwaltung.cmd`, `Caritas-Verwaltung-TUI.cmd` (at root and in `setup/`)
    - Fixed argument escaping by passing a native PowerShell array `@('-Sta', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', '%TARGET_SCRIPT%')`, preventing argument truncation or empty-string parsing.
    - Updated provisioner `setup/Install-CaritasEnvironment.ps1` to detect active local administrator profiles dynamically and deploy shortcuts to `C:\Users\CaritasAdmin\Desktop`.
 
-6. **Strictly On-Demand Patron Profile Reset:**
+8. **Strictly On-Demand Patron Profile Reset:**
    - Script: `scripts/Reset-CaritasUserProfile.ps1`
    - Unprivileged Execution Mechanism: Elevated Scheduled Task `Caritas-ResetUserSession` under `NT AUTHORITY\SYSTEM` with security descriptor `(A;;0x12019f;;;BU)` and file ACL `icacls *S-1-5-32-545:(RX)` on the task definition.
    - Public Desktop Shortcut: `C:\Users\Public\Desktop\Sitzung zurücksetzen.lnk` pointing to `schtasks.exe /run /tn "Caritas-ResetUserSession"`.
    - Profiles persist across routine reboots, logouts, and shutdowns.
 
-7. **Native Control Centers (GUI & TUI):**
+9. **Native Control Centers (GUI & TUI):**
    - GUI: `scripts/Caritas-ControlCenter-GUI.ps1` (WPF/XAML, Caritas CI with Caritas Red #C41230, live Progress & Status Dashboard, scalable layout, dedicated exit option, non-blocking file-redirected runner).
    - TUI: `scripts/Caritas-ControlCenter.ps1` (single-key interaction, audit log viewer, unattended switch, strictly newer version update logic).
-   - Version metadata bumped to `1.0.6` in `version.json`.
+   - Version metadata bumped to `1.0.7` in `version.json`.
 
 ## 3. Remote Verification & Hardware Testing
 - Target Host: `10.106.81.35` (`CARITAS-X1-1`), Windows 11 Pro 64-bit Build 26100.
 - Active Administrator: `CaritasAdmin`.
 - Suite Location: `C:\Users\CaritasAdmin\Desktop\CaritasScripts\`.
-- Autologon Registry Verification: Confirmed `AutoAdminLogon = 1`, `DefaultUserName = User`, `ForceAutoLogon = 1` active in `Winlogon`.
-- Live Task Runner Hardware Test: Reset task executed on `CARITAS-X1-1` in 4.36 seconds with all 6 progress steps detected and zero blocking.
-- Fresh Deployment: Deployed updated v1.0.6 suite to `C:\Users\CaritasAdmin\Desktop\CaritasScripts\`.
-- UTF-8 BOM Verification: Confirmed remote PowerShell 5.1 AST parser and XML parser successfully decode all German umlauts (`ä, ö, ü, Ä, Ö, Ü, ß`) and Unicode symbols (`⚡, ★, •, ▶, ✕`) without mojibake.
-- Shortcuts Verified on `CaritasAdmin` Desktop:
-  - `Caritas Verwaltung.lnk` -> `C:\Users\CaritasAdmin\Desktop\CaritasScripts\Caritas-Verwaltung.cmd` (Verified `Exists: True`).
-  - `Caritas Verwaltung (Terminal).lnk` -> `C:\Users\CaritasAdmin\Desktop\CaritasScripts\Caritas-Verwaltung-TUI.cmd` (Verified `Exists: True`).
-- Scheduled Tasks Verified:
-  - `Caritas-MonthlyMaintenance`: Ready.
-  - `Caritas-ResetUserSession`: Ready (pointing to active admin desktop path, unprivileged trigger functional).
-  - `Caritas-ResetUserOnBoot`: Decommissioned and absent.
-- OOBE & Privacy Keys Verified:
-  - `DisablePrivacyExperience = 1` in `HKLM:\SOFTWARE\Policies\Microsoft\Windows\OOBE`.
-  - `DisableLocation = 1`, `DisableLocationScripting = 1`, `DisableSensors = 1` in `HKLM:\SOFTWARE\Policies\Microsoft\Windows\LocationAndSensors`.
-  - Privacy consent and SCOOBE bypass stamped across user hives.
-- Firefox Configuration Verified:
-  - `C:\Program Files\Mozilla Firefox\distribution\policies.json` deployed with locked first-run bypass and autostart denial.
-  - Autostart `Run` registry keys verified clean across all user hives.
-- Network Management: WinRM port 5985 left active on `CARITAS-X1-1` per user instructions.
+- Autologon & Password Verification: Verified `User` credentials `Caritas2412!` via `System.DirectoryServices.AccountManagement.PrincipalContext` return `Valid: True`. Confirmed `AutoAdminLogon = 1`, `DefaultUserName = User`, `DefaultPassword = Caritas2412!`, `ForceAutoLogon = 1` in `Winlogon`.
+- Discord Eradication Verification: Verified 0 running Discord/DiscordSystemHelper processes, Squirrel machine installer purged, HKLM WOW64 Run key removed, and local user AppData Discord directories purged.
+- Live Reset & Provisioning Execution: Successfully ran `Install-CaritasEnvironment.ps1` and `Reset-CaritasUserProfile.ps1` on physical laptop hardware.
+- UTF-8 BOM Verification: Confirmed remote PowerShell 5.1 AST parser decodes all scripts without errors.
 
 ## 4. Pending Decisions & Next Steps
-- Commit repository changes, tag `v1.0.6`, and push to GitHub repository `Adrixan/CaritasLaptops-Management-Scripts` to trigger the automated release workflow.
+- Commit repository changes, tag `v1.0.7`, and push to GitHub repository `Adrixan/CaritasLaptops-Management-Scripts` to trigger the automated release workflow.
