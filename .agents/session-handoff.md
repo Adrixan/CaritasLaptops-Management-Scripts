@@ -77,12 +77,11 @@
   - Enhanced `Process-ProgressLine` to strip secondary log level/category tags (`[INFO]`, `[ACTION]`, `[START]`, `[DONE]`, `[WARN]`, `[ERROR]`, `[DESKTOP-DEPLOY]`) and capture checkmark summary lines (`✓`, `✔`) so progress bar percentage and current step indicators update in real-time.
   - Bumped version to 1.1.1 across `version.json`, `scripts/Caritas-ControlCenter-GUI.ps1`, `scripts/Caritas-ControlCenter.ps1`, `setup/build-pdf.py`, and recompiled `HANDBUCH.pdf`.
   - Verified UTF-8 with BOM encoding across all `.ps1` files.
-- Multi-Tier Admin Account Provisioning & Dual Desktop Deployment (v1.1.3):
-  - Root Cause Analysis (CaritasAdmin creation failure): In `scripts/Ensure-CaritasAdminAccounts.ps1`, `New-LocalUser` lacked error handling and fallbacks. On systems with `Microsoft.PowerShell.LocalAccounts` RPC/SAM latency, Microsoft Account links, or domain sync bugs, `New-LocalUser` threw an unhandled exception while Step 3 succeeded because built-in `Administrator` used a `net.exe user` fallback. Implemented a robust 3-tier creation architecture: Tier 1 (`New-LocalUser`), Tier 2 (native Win32 `net.exe user /add`), and Tier 3 (WinNT ADSI COM interface), coupled with multi-tier account existence checks (`Test-UserAccountExists`).
-  - Root Cause Analysis (Missing Desktop Scripts on Administrator): `scripts/Deploy-CaritasAdminDesktop.ps1` previously hardcoded `TargetUser = "CaritasAdmin"`, and the logon task `Caritas-DeployAdminDesktop` had no target parameters. When logging in as the built-in `Administrator`, the deployment script ignored the active profile. Upgraded `Deploy-CaritasAdminDesktop.ps1` to accept `TargetUsers` / `-AllAdmins`, dynamically discovering all administrative accounts (`CaritasAdmin`, built-in `Administrator`, and all members of `S-1-5-32-544`), and deploying `CaritasScripts` along with the three desktop shortcuts (`Caritas Verwaltung.lnk`, `Caritas Verwaltung (Terminal).lnk`, `Caritas Handbuch.lnk`) to all administrative profiles.
-  - Multi-Locale Administrators Group Resolution: Replaced fragile name lookups with 4-way resolution (`Get-LocalGroup` SID lookup, .NET `SecurityIdentifier` LsaLookupSids translation, CIM `Win32_Group`, and dual-locale fallback `Administratoren` / `Administrators`).
-  - Staging Pipeline Hardening: Ensured `Deploy-CaritasAdminDesktop.ps1` is copied alongside other helper scripts in `setup/Install-CaritasEnvironment.ps1` and `scripts/Reset-CaritasUserProfile.ps1`.
-  - Bumped version to 1.1.3 across `version.json`, `scripts/Caritas-ControlCenter-GUI.ps1`, `scripts/Caritas-ControlCenter.ps1`, `setup/build-pdf.py`, and recompiled `HANDBUCH.pdf`.
+- SAM Description Length & Resilient Account Creation (v1.1.4):
+  - Root Cause Analysis (New-LocalUser Description Validation Error): Under Windows SAM (`lmaccess.h`), local account descriptions (`usri1_comment`) enforce a strict maximum length `MAXCOMMENTSZ = 48`. PowerShell's `New-LocalUser` cmdlet validates this via `[ValidateLength(0, 48)]`. The string `"Lokales Haupt-Administrationskonto für Wartung und Support"` (57 characters) triggered `ParameterArgumentValidationError` ("Das Argument für den Parameter 'Description' kann nicht überprüft werden. Die Länge des Arguments (57) ist zu lang."). On devices where `CaritasAdmin` already existed, `Test-UserAccountExists` was true so creation was skipped; on fresh devices without `CaritasAdmin`, creation failed across all tiers because `net.exe` and `ADSI` also rejected comments > 48 characters.
+  - Shortened Description to `"Lokales Haupt-Administrationskonto"` (34 characters <= 48).
+  - Implemented parameterless inner fallbacks across all 3 tiers (Tier 1 `New-LocalUser`, Tier 2 `net.exe user`, Tier 3 `ADSI`), retrying account creation without description/comment if any parameter validation or SAM error occurs.
+  - Bumped version to 1.1.4 across `version.json`, `scripts/Caritas-ControlCenter-GUI.ps1`, `scripts/Caritas-ControlCenter.ps1`, `setup/build-pdf.py`, and recompiled `HANDBUCH.pdf`.
   - Verified UTF-8 with BOM encoding across all `.ps1` files and ensured zero em dashes.
 
 ## 2. Active Intent & Delivered Artifacts
@@ -131,6 +130,6 @@ All modules, launchers, and deployment artifacts are authored, validated, and ve
   - `Autounattend_Xml_Exists`: True (`8559` bytes)
 
 ## 4. Pending Decisions & Next Steps
-- Release v1.1.3 to be published to GitHub.
+- Release v1.1.4 to be published to GitHub.
 
 

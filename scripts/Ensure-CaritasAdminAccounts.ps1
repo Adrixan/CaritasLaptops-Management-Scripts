@@ -219,28 +219,46 @@ if ($DryRun) {
         Write-AdminLog "  -> Erstelle lokales Benutzerkonto 'CaritasAdmin'..." "ACTION" ([ConsoleColor]::Yellow)
         $created = $false
 
-        # Tier 1: PowerShell New-LocalUser
+        # Tier 1: PowerShell New-LocalUser (Note: SAM usri1_comment MAXCOMMENTSZ limit is 48 chars)
+        $adminDesc = "Lokales Haupt-Administrationskonto"
         try {
             New-LocalUser -Name "CaritasAdmin" `
                 -Password $secAdminPass `
                 -FullName "Caritas Administrator" `
-                -Description "Lokales Haupt-Administrationskonto für Wartung und Support" `
+                -Description $adminDesc `
                 -PasswordNeverExpires -ErrorAction Stop | Out-Null
             $created = $true
             Write-AdminLog "  [OK] Konto 'CaritasAdmin' via New-LocalUser erfolgreich angelegt." "ACTION" ([ConsoleColor]::Green)
         } catch {
-            Write-AdminLog "  -> New-LocalUser fehlgeschlagen ($($_.Exception.Message)). Starte Tier-2 Fallback via net.exe..." "WARN" ([ConsoleColor]::Yellow)
+            # Inner fallback: Retry New-LocalUser without Description in case parameter validation or SAM rejects it
+            try {
+                New-LocalUser -Name "CaritasAdmin" `
+                    -Password $secAdminPass `
+                    -FullName "Caritas Administrator" `
+                    -PasswordNeverExpires -ErrorAction Stop | Out-Null
+                $created = $true
+                Write-AdminLog "  [OK] Konto 'CaritasAdmin' via New-LocalUser (ohne Description) erfolgreich angelegt." "ACTION" ([ConsoleColor]::Green)
+            } catch {
+                Write-AdminLog "  -> New-LocalUser fehlgeschlagen ($($_.Exception.Message)). Starte Tier-2 Fallback via net.exe..." "WARN" ([ConsoleColor]::Yellow)
+            }
         }
 
         # Tier 2: Native Win32 net.exe user
         if (-not $created) {
             try {
-                $netRes = & net.exe user CaritasAdmin "$AdminPassword" /add /comment:"Lokales Haupt-Administrationskonto fuer Wartung und Support" /fullname:"Caritas Administrator" /active:yes 2>&1 | Out-String
+                $netRes = & net.exe user CaritasAdmin "$AdminPassword" /add /comment:"$adminDesc" /fullname:"Caritas Administrator" /active:yes 2>&1 | Out-String
                 if ($LASTEXITCODE -eq 0 -or (Test-UserAccountExists -Username "CaritasAdmin")) {
                     $created = $true
                     Write-AdminLog "  [OK] Konto 'CaritasAdmin' via net.exe user erfolgreich angelegt." "ACTION" ([ConsoleColor]::Green)
                 } else {
-                    Write-AdminLog "  -> net.exe user fehlgeschlagen ($netRes). Starte Tier-3 Fallback via ADSI..." "WARN" ([ConsoleColor]::Yellow)
+                    # Inner fallback: Retry net.exe without comment
+                    & net.exe user CaritasAdmin "$AdminPassword" /add /active:yes 2>&1 | Out-Null
+                    if ($LASTEXITCODE -eq 0 -or (Test-UserAccountExists -Username "CaritasAdmin")) {
+                        $created = $true
+                        Write-AdminLog "  [OK] Konto 'CaritasAdmin' via net.exe user (Basis) erfolgreich angelegt." "ACTION" ([ConsoleColor]::Green)
+                    } else {
+                        Write-AdminLog "  -> net.exe user fehlgeschlagen ($netRes). Starte Tier-3 Fallback via ADSI..." "WARN" ([ConsoleColor]::Yellow)
+                    }
                 }
             } catch {
                 Write-AdminLog "  -> net.exe user Ausnahme: $_. Starte Tier-3 Fallback via ADSI..." "WARN" ([ConsoleColor]::Yellow)
@@ -254,7 +272,7 @@ if ($DryRun) {
                 $adsiUser = $adsiComp.Create("User", "CaritasAdmin")
                 $adsiUser.SetPassword($AdminPassword)
                 $adsiUser.put("FullName", "Caritas Administrator")
-                $adsiUser.put("Description", "Lokales Haupt-Administrationskonto fuer Wartung und Support")
+                $adsiUser.put("Description", $adminDesc)
                 $adsiUser.put("UserFlags", 0x10200) # UF_NORMAL_ACCOUNT | UF_DONT_EXPIRE_PASSWORD
                 $adsiUser.SetInfo()
                 if (Test-UserAccountExists -Username "CaritasAdmin") {
@@ -262,7 +280,19 @@ if ($DryRun) {
                     Write-AdminLog "  [OK] Konto 'CaritasAdmin' via ADSI erfolgreich angelegt." "ACTION" ([ConsoleColor]::Green)
                 }
             } catch {
-                Write-AdminLog "  [-] ADSI-Kontoerstellung fehlgeschlagen: $_" "ERROR" ([ConsoleColor]::Red)
+                # Inner fallback: Retry ADSI without Description
+                try {
+                    $adsiComp = [ADSI]"WinNT://$env:COMPUTERNAME"
+                    $adsiUser = $adsiComp.Create("User", "CaritasAdmin")
+                    $adsiUser.SetPassword($AdminPassword)
+                    $adsiUser.SetInfo()
+                    if (Test-UserAccountExists -Username "CaritasAdmin") {
+                        $created = $true
+                        Write-AdminLog "  [OK] Konto 'CaritasAdmin' via ADSI (Basis) erfolgreich angelegt." "ACTION" ([ConsoleColor]::Green)
+                    }
+                } catch {
+                    Write-AdminLog "  [-] ADSI-Kontoerstellung fehlgeschlagen: $_" "ERROR" ([ConsoleColor]::Red)
+                }
             }
         }
     } else {
