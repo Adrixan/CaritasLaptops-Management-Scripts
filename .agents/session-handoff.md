@@ -130,6 +130,7 @@ All modules, launchers, and deployment artifacts are authored, validated, and ve
   - `Autounattend_Xml_Exists`: True (`8559` bytes)
 
 ## 4. Pending Decisions & Next Steps
-- Release v1.1.4 to be published to GitHub.
+- Release v1.1.4 successfully published to GitHub and verified.
+- Working tree clean and synchronized with origin/main.
 
 
