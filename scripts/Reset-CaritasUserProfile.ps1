@@ -31,6 +31,7 @@
 param(
     [string]$TargetUsername = "User",
     [string]$UserPassword = "Caritas2412!",
+    [switch]$SkipTask,
     [switch]$RegisterTask,
     [switch]$CreateDesktopShortcut,
     [switch]$InstallAll,
@@ -74,7 +75,7 @@ Write-ResetLog "Starte Bereinigung und Zurücksetzung des Benutzerkontos '$Targe
 Write-ResetLog "Zielkonto: $TargetUsername | Computer: $env:COMPUTERNAME | Aufrufer: $env:USERNAME" "INFO" ([ConsoleColor]::Gray)
 
 # 2. Enforce Isolation Policies (NoConnectedUser, DisableFileSyncNGSC, DisableSettingSync)
-Write-ResetLog "[Schritt 1/6] Überprüfe System-Isolationsrichtlinien (MSA, OneDrive, Synchronisation)..." "INFO" ([ConsoleColor]::Yellow)
+Write-ResetLog "[Schritt 1/7] Überprüfe System-Isolationsrichtlinien (MSA, OneDrive, Synchronisation)..." "INFO" ([ConsoleColor]::Yellow)
 
 if (-not $DryRun) {
     Write-ResetLog "  -> Blockiere Microsoft-Konto Verknüpfung (NoConnectedUser=3)..." "ACTION" ([ConsoleColor]::Gray)
@@ -101,7 +102,7 @@ if (-not $DryRun) {
 }
 
 # 3. Terminate Active and Disconnected Sessions
-Write-ResetLog "[Schritt 2/6] Prüfe und beende aktive Sitzungen für '$TargetUsername'..." "INFO" ([ConsoleColor]::Yellow)
+Write-ResetLog "[Schritt 2/7] Prüfe und beende aktive Sitzungen für '$TargetUsername'..." "INFO" ([ConsoleColor]::Yellow)
 
 if (-not $DryRun) {
     Write-ResetLog "  -> Überprüfe aktive Benutzersitzungen..." "ACTION" ([ConsoleColor]::Gray)
@@ -133,11 +134,17 @@ if (-not $DryRun) {
 }
 
 # 4. Delete Profile via Native CIM API (Win32_UserProfile)
-Write-ResetLog "[Schritt 3/6] Lösche Benutzerprofil über die Windows-CIM-Schnittstelle..." "INFO" ([ConsoleColor]::Yellow)
+Write-ResetLog "[Schritt 3/7] Lösche Benutzerprofil über die Windows-CIM-Schnittstelle..." "INFO" ([ConsoleColor]::Yellow)
 
 Write-ResetLog "  -> Suche registriertes Profil in Win32_UserProfile..." "ACTION" ([ConsoleColor]::Gray)
 $targetProfile = Get-CimInstance -ClassName Win32_UserProfile | Where-Object {
     $_.LocalPath -like "*\$TargetUsername" -and -not $_.Special
+}
+
+$targetSid = if ($targetProfile) { $targetProfile.SID } else { $null }
+if (-not $targetSid) {
+    $localUserObj = Get-LocalUser -Name $TargetUsername -ErrorAction SilentlyContinue
+    if ($localUserObj -and $localUserObj.SID) { $targetSid = $localUserObj.SID.Value }
 }
 
 if ($targetProfile) {
@@ -184,7 +191,7 @@ if ($targetProfile) {
 }
 
 # 5. Clean Residual ProfileList Registry References & Filesystem Artifacts
-Write-ResetLog "[Schritt 4/6] Bereinige Profilliste in der Registrierung und Dateisystem-Reste..." "INFO" ([ConsoleColor]::Yellow)
+Write-ResetLog "[Schritt 4/7] Bereinige Profilliste in der Registrierung und Dateisystem-Reste..." "INFO" ([ConsoleColor]::Yellow)
 
 if (-not $DryRun) {
     Write-ResetLog "  -> Prüfe HKLM ProfileList auf verwaiste Einträge..." "ACTION" ([ConsoleColor]::Gray)
@@ -260,8 +267,72 @@ if (-not $DryRun) {
     Write-ResetLog "  [DryRun] Würde ProfileList-Schlüssel bereinigen und C:\Users\$TargetUsername entfernen." "INFO" ([ConsoleColor]::Gray)
 }
 
-# 6. Ensure Local User Account Exists & Enforce Standard Privileges & Auto-Logon
-Write-ResetLog "[Schritt 5/6] Konfiguriere Benutzerkonto '$TargetUsername' & automatische Anmeldung..." "INFO" ([ConsoleColor]::Yellow)
+# 6. Clean Recycle Bin for Target User & Non-Admin Accounts across all fixed drives
+Write-ResetLog "[Schritt 5/7] Bereinige Papierkorb für Benutzer '$TargetUsername' auf allen Festplatten..." "INFO" ([ConsoleColor]::Yellow)
+
+if (-not $DryRun) {
+    $sidsToClean = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    if ($targetSid) { [void]$sidsToClean.Add($targetSid) }
+
+    $currentUserObj = Get-LocalUser -Name $TargetUsername -ErrorAction SilentlyContinue
+    if ($currentUserObj -and $currentUserObj.SID) { [void]$sidsToClean.Add($currentUserObj.SID.Value) }
+
+    # Protect administrative and system SIDs from accidental deletion
+    $protectedSids = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($ws in @("S-1-5-18", "S-1-5-19", "S-1-5-20")) { [void]$protectedSids.Add($ws) }
+    $bAdmin = Get-LocalUser -ErrorAction SilentlyContinue | Where-Object { $_.SID.Value -match '-500$' }
+    if ($bAdmin -and $bAdmin.SID) { [void]$protectedSids.Add($bAdmin.SID.Value) }
+    $cAdmin = Get-LocalUser -Name "CaritasAdmin" -ErrorAction SilentlyContinue
+    if ($cAdmin -and $cAdmin.SID) { [void]$protectedSids.Add($cAdmin.SID.Value) }
+
+    $fixedDrives = Get-CimInstance Win32_LogicalDisk -ErrorAction SilentlyContinue | Where-Object { $_.DriveType -eq 3 } | Select-Object -ExpandProperty DeviceID
+    if (-not $fixedDrives) { $fixedDrives = @("C:") }
+
+    # Discover any non-admin user SIDs present in $Recycle.Bin
+    foreach ($d in $fixedDrives) {
+        $rRoot = "$d\`$Recycle.Bin"
+        if (Test-Path $rRoot) {
+            Get-ChildItem -Path $rRoot -Force -Directory -ErrorAction SilentlyContinue | ForEach-Object {
+                $folderName = $_.Name
+                if ($folderName -match '^S-1-5-21-' -and -not $protectedSids.Contains($folderName)) {
+                    [void]$sidsToClean.Add($folderName)
+                }
+            }
+        }
+    }
+
+    $recycleCleanCount = 0
+    foreach ($d in $fixedDrives) {
+        $recycleRoot = "$d\`$Recycle.Bin"
+        if (Test-Path $recycleRoot) {
+            foreach ($sid in $sidsToClean) {
+                $userBin = Join-Path $recycleRoot $sid
+                if (Test-Path $userBin) {
+                    Write-ResetLog "  -> Bereinige Papierkorb '$userBin'..." "ACTION" ([ConsoleColor]::Yellow)
+                    Get-ChildItem -Path $userBin -Recurse -Force -ErrorAction SilentlyContinue | ForEach-Object {
+                        try { $_.Attributes = 'Normal' } catch {}
+                    }
+                    Remove-Item -Path $userBin -Recurse -Force -ErrorAction SilentlyContinue
+                    if (Test-Path $userBin) {
+                        & cmd.exe /c "rd /s /q `"$userBin`"" 2>$null
+                    }
+                    $recycleCleanCount++
+                }
+            }
+        }
+    }
+
+    try {
+        Clear-RecycleBin -Force -ErrorAction SilentlyContinue
+    } catch {}
+
+    Write-ResetLog "  [OK] Papierkorb vollständig geleert ($recycleCleanCount Speicherort(e) bereinigt)." "INFO" ([ConsoleColor]::Green)
+} else {
+    Write-ResetLog "  [DryRun] Würde Papierkorb für '$TargetUsername' auf allen Festplatten leeren." "INFO" ([ConsoleColor]::Gray)
+}
+
+# 7. Ensure Local User Account Exists & Enforce Standard Privileges & Auto-Logon
+Write-ResetLog "[Schritt 6/7] Konfiguriere Benutzerkonto '$TargetUsername' & automatische Anmeldung..." "INFO" ([ConsoleColor]::Yellow)
 
 if (-not $DryRun) {
     Write-ResetLog "  -> Überprüfe lokales Benutzerkonto '$TargetUsername'..." "ACTION" ([ConsoleColor]::Gray)
@@ -312,46 +383,84 @@ if (-not $DryRun) {
     Write-ResetLog "  [DryRun] Würde Benutzerkonto '$TargetUsername' und Autologon konfigurieren." "INFO" ([ConsoleColor]::Gray)
 }
 
-# 7. Provisioning Facilities (Scheduled Task, Desktop Shortcut, Legacy Cleanup)
-Write-ResetLog "[Schritt 6/6] Überprüfe Bereitstellung (Aufgabenplanung & Desktop-Verknüpfung)..." "INFO" ([ConsoleColor]::Yellow)
+# 8. Provisioning Facilities (Scheduled Task, Desktop Shortcut, Legacy Cleanup)
+Write-ResetLog "[Schritt 7/7] Überprüfe Bereitstellung (Aufgabenplanung & Desktop-Verknüpfung)..." "INFO" ([ConsoleColor]::Yellow)
 $scriptPath = if ($PSCommandPath) { $PSCommandPath } else { Join-Path $scriptDir "Reset-CaritasUserProfile.ps1" }
 
-if ($RegisterTask -or $InstallAll) {
+$shouldConfigureTask = (-not $SkipTask)
+$shouldConfigureShortcut = (-not $SkipTask)
+
+if ($shouldConfigureTask) {
     Write-ResetLog "  -> Konfiguriere erhöhte geplante Aufgabe 'Caritas-ResetUserSession'..." "INFO" ([ConsoleColor]::Yellow)
     if (-not $DryRun) {
+        $stagedScripts = "C:\ProgramData\CaritasScripts\scripts"
+        if (-not (Test-Path $stagedScripts)) {
+            New-Item -ItemType Directory -Path $stagedScripts -Force | Out-Null
+        }
+        foreach ($fn in @("Start-UserReset.cmd", "Reset-CaritasUserProfile.ps1", "Ensure-CaritasAdminAccounts.ps1")) {
+            $src = Join-Path $scriptDir $fn
+            $dst = Join-Path $stagedScripts $fn
+            if ((Test-Path $src) -and ($src -ne $dst)) {
+                Copy-Item -Path $src -Destination $dst -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+        $taskScript = Join-Path $stagedScripts "Reset-CaritasUserProfile.ps1"
+        if (-not (Test-Path $taskScript)) {
+            $taskScript = $scriptPath
+        }
+
         $taskName = "Caritas-ResetUserSession"
         $action = New-ScheduledTaskAction -Execute "powershell.exe" `
-            -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`" -TargetUsername `"$TargetUsername`""
+            -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$taskScript`" -TargetUsername `"$TargetUsername`" -RebootAfterReset -SkipTask"
         $principal = New-ScheduledTaskPrincipal -UserId "NT AUTHORITY\SYSTEM" -LogonType ServiceAccount -RunLevel Highest
         $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
         Register-ScheduledTask -TaskName $taskName -Action $action -Principal $principal -Settings $settings -Force | Out-Null
         Write-ResetLog "  [OK] Geplante Aufgabe '$taskName' erfolgreich unter SYSTEM registriert." "ACTION" ([ConsoleColor]::Green)
 
-        # Grant Builtin\Users execute rights so standard patrons can trigger the reset via shortcut
+        # Grant Builtin\Users (BU) and Authenticated Users (AU) execute rights so standard patrons can trigger the reset
         try {
             $scheduler = New-Object -ComObject "Schedule.Service"
             $scheduler.Connect()
             $folder = $scheduler.GetFolder("\")
             $taskObj = $folder.GetTask($taskName)
-            $currentSddl = $taskObj.GetSecurityDescriptor(4)
-            if ($currentSddl -notmatch ";;;BU\)" -and $currentSddl -notmatch "0x12019f;;;BU") {
-                $taskObj.SetSecurityDescriptor($currentSddl + "(A;;0x12019f;;;BU)", 0)
-                Write-ResetLog "  [OK] Ausführungsberechtigungen für Builtin\Users vergeben." "ACTION" ([ConsoleColor]::Green)
+
+            # SecurityInformation: 15 (0xF) = OWNER | GROUP | DACL | SACL
+            $sddl = $taskObj.GetSecurityDescriptor(15)
+
+            $acesToAdd = ""
+            if ($sddl -notmatch ';;;AU\)') {
+                $acesToAdd += "(A;;GRGX;;;AU)"
+            }
+            if ($sddl -notmatch ';;;BU\)') {
+                $acesToAdd += "(A;;GRGX;;;BU)"
+            }
+            if ($targetSid -and ($sddl -notmatch [regex]::Escape($targetSid))) {
+                $acesToAdd += "(A;;GRGX;;;$targetSid)"
+            }
+
+            if ($acesToAdd) {
+                $newSddl = $sddl + $acesToAdd
+                $taskObj.SetSecurityDescriptor($newSddl, 0)
+                Write-ResetLog "  [OK] Ausführungsberechtigungen (GRGX) für Builtin\Users und Authenticated Users vergeben." "ACTION" ([ConsoleColor]::Green)
+            } else {
+                Write-ResetLog "  [OK] Ausführungsberechtigungen für Benutzer bereits vorhanden." "INFO" ([ConsoleColor]::Green)
             }
         } catch {
-            Write-ResetLog "  Notice: Task COM security descriptor update: $_" "WARN" ([ConsoleColor]::DarkGray)
+            Write-ResetLog "  [-] Fehler beim Aktualisieren der Task-Sicherheitsbeschreibung: $_" "WARN" ([ConsoleColor]::Yellow)
         }
 
+        # Backup: Update file ACL on task definition in System32\Tasks
         $taskFilePath = "$env:SystemRoot\System32\Tasks\$taskName"
         if (Test-Path $taskFilePath) {
-            & icacls.exe $taskFilePath /grant "*S-1-5-32-545:(RX)" /Q | Out-Null
+            & icacls.exe $taskFilePath /grant "*S-1-5-32-545:(RX)" "*S-1-5-11:(RX)" /Q | Out-Null
         }
     } else {
         Write-ResetLog "  [DryRun] Würde geplante Aufgabe 'Caritas-ResetUserSession' registrieren." "INFO" ([ConsoleColor]::Gray)
     }
 }
 
-if ($CreateDesktopShortcut -or $InstallAll) {
+if ($shouldConfigureShortcut) {
     $shortcutFileName = "Sitzung zur$([char]0x00FC)cksetzen.lnk"
     Write-ResetLog "  -> Erstelle öffentliche Desktop-Verknüpfung '$shortcutFileName'..." "INFO" ([ConsoleColor]::Yellow)
     if (-not $DryRun) {
@@ -359,16 +468,27 @@ if ($CreateDesktopShortcut -or $InstallAll) {
         # Remove any previously misencoded shortcuts
         Get-ChildItem -Path $publicDesktop -Filter "*cksetzen.lnk" -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
 
+        $stagedCmd = "C:\ProgramData\CaritasScripts\scripts\Start-UserReset.cmd"
+        $targetCmd = if (Test-Path $stagedCmd) {
+            $stagedCmd
+        } elseif (Test-Path "$scriptDir\Start-UserReset.cmd") {
+            "$scriptDir\Start-UserReset.cmd"
+        } else {
+            "C:\Windows\System32\schtasks.exe"
+        }
+
         $shortcutPath = Join-Path $publicDesktop $shortcutFileName
         $wshShell = New-Object -ComObject WScript.Shell
         $shortcut = $wshShell.CreateShortcut($shortcutPath)
-        $shortcut.TargetPath = "C:\Windows\System32\schtasks.exe"
-        $shortcut.Arguments = "/run /tn `"Caritas-ResetUserSession`""
+        $shortcut.TargetPath = $targetCmd
+        if ($targetCmd -like "*schtasks.exe") {
+            $shortcut.Arguments = "/run /tn `"Caritas-ResetUserSession`""
+        }
         $shortcut.IconLocation = "C:\Windows\System32\shell32.dll,238"
-        $shortcut.Description = "Setzt das Benutzerkonto '$TargetUsername' auf den sauberen Ausgangszustand zur$([char]0x00FC)ck."
-        $shortcut.WorkingDirectory = "C:\Windows\System32"
+        $shortcut.Description = "Setzt das Benutzerkonto '$TargetUsername' und den Papierkorb auf den sauberen Ausgangszustand zur$([char]0x00FC)ck."
+        $shortcut.WorkingDirectory = Split-Path $targetCmd -Parent
         $shortcut.Save()
-        Write-ResetLog "  [OK] Desktop-Verknüpfung unter '$shortcutPath' bereitgestellt." "ACTION" ([ConsoleColor]::Green)
+        Write-ResetLog "  [OK] Desktop-Verknüpfung unter '$shortcutPath' bereitgestellt (Ziel: $targetCmd)." "ACTION" ([ConsoleColor]::Green)
     } else {
         Write-ResetLog "  [DryRun] Würde Desktop-Verknüpfung '$shortcutFileName' erstellen." "INFO" ([ConsoleColor]::Gray)
     }

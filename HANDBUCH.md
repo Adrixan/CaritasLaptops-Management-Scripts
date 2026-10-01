@@ -183,22 +183,22 @@ Die Caritas Management-Suite konfiguriert TeamViewer bei der Erst-Einrichtung un
 ## 7. Laufender Betrieb & Wartung
 
 ### 7.1 Sitzung von 'User' zurücksetzen (Clean Slate)
-Klientinnen und Klienten hinterlassen während der Nutzung persönliche Dokumente, Browser-Verläufe und Downloads. Das Zurücksetzen erfolgt strikt nach Bedarf (On-Demand):
-
+Klientinnen und Klienten hinterlassen während der Nutzung persönliche Dokumente, Browser-Verläufe, Downloads und gelöschte Dateien im Papierkorb. Das Zurücksetzen erfolgt strikt nach Bedarf (On-Demand):
 - **Durch Klienten oder Betreuungspersonal:**
   Auf dem Desktop des Kontos `User` befindet sich die Verknüpfung:
   `[Sitzung zurücksetzen]`
-  Ein Doppelklick stößt die Bereinigung sofort ohne Administrator-Kennwort über eine erhöhte System-Aufgabe an.
+  Ein Doppelklick öffnet den Launcher `Start-UserReset.cmd`. Dieser stößt die Bereinigung sofort ohne Administrator-Kennwort über die erhöhte System-Aufgabe `Caritas-ResetUserSession` an und gibt unmittelbare visuelle Rückmeldung.
 - **Durch Administrator über das Kontrollzentrum:**
   In `Caritas-Verwaltung.cmd` die Aktionskarte **Benutzerkonto 'User' zurücksetzen** anklicken.
 
-Der Bereinigungsprozess umfasst sechs Stufen:
+Der Bereinigungsprozess umfasst sieben Stufen:
 - Trennung aktiver Sitzungen und Abmeldung des Benutzers.
 - Vollständige Löschung des Profilverzeichnisses `C:\Users\User` via CIM/WMI `Win32_UserProfile.Delete()`.
-- Bereinigung verwaister Registrierungsschlüssel (`ProfileList`).
+- Bereinigung verwaister Registrierungsschlüssel (`ProfileList`) und temporärer Ordner.
+- Vollständige Leerung und Beseitigung aller Papierkörbe (`$Recycle.Bin\<User-SID>`) des Benutzers über alle lokalen Festplatten.
 - Neuanlage des Benutzerkontos mit Kennwort `Caritas2412!` und erneute Autologon-Konfiguration.
 - Sicherstellung, dass Firefox-Autostart-Einträge und Discord-Reste gelöscht bleiben.
-- Beim nächsten Start wird das Profil blitzsauber aus der Vorlage `C:\Users\Default` mit dem korrekten Taskleisten-Layout neu erzeugt.
+- Automatischer Neustart (bei Aufruf über die Verknüpfung), sodass das Profil beim Hochfahren blitzsauber aus der Vorlage `C:\Users\Default` mit dem korrekten Taskleisten-Layout und einem leeren Papierkorb neu erzeugt wird.
 
 ### 7.2 In-Place-Updates der Management-Suite
 Das Kontrollzentrum prüft bei jedem Start automatisch auf GitHub nach neuen Skriptversionen:

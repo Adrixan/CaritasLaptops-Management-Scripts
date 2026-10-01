@@ -240,6 +240,73 @@ try {
     Write-Host "[-] Fehler beim Konfigurieren der automatischen Anmeldung: $_" -ForegroundColor Yellow
 }
 
+# 7.1 Provision Session Reset Task and Public Desktop Shortcut
+Write-Host "[*] Richte Sitzungs-Zurücksetzung und Desktop-Verknüpfung für 'User' ein..." -ForegroundColor Cyan
+try {
+    $stagedScripts = "C:\ProgramData\CaritasScripts\scripts"
+    if (-not (Test-Path $stagedScripts)) { New-Item -ItemType Directory -Path $stagedScripts -Force | Out-Null }
+    foreach ($fn in @("Start-UserReset.cmd", "Reset-CaritasUserProfile.ps1", "Ensure-CaritasAdminAccounts.ps1")) {
+        $srcCandidates = @(
+            (Join-Path $baseDir "scripts\$fn"),
+            (Join-Path $scriptDir "scripts\$fn"),
+            (Join-Path $scriptDir $fn)
+        )
+        $src = $srcCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+        if ($src) {
+            Copy-Item -Path $src -Destination (Join-Path $stagedScripts $fn) -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    $taskScript = Join-Path $stagedScripts "Reset-CaritasUserProfile.ps1"
+    if (Test-Path $taskScript) {
+        $taskName = "Caritas-ResetUserSession"
+        $action = New-ScheduledTaskAction -Execute "powershell.exe" `
+            -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$taskScript`" -TargetUsername `"User`" -RebootAfterReset -SkipTask"
+        $principal = New-ScheduledTaskPrincipal -UserId "NT AUTHORITY\SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+        $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+        Register-ScheduledTask -TaskName $taskName -Action $action -Principal $principal -Settings $settings -Force | Out-Null
+
+        try {
+            $scheduler = New-Object -ComObject "Schedule.Service"
+            $scheduler.Connect()
+            $folder = $scheduler.GetFolder("\")
+            $taskObj = $folder.GetTask($taskName)
+            $sddl = $taskObj.GetSecurityDescriptor(15)
+            $acesToAdd = ""
+            if ($sddl -notmatch ';;;AU\)') { $acesToAdd += "(A;;GRGX;;;AU)" }
+            if ($sddl -notmatch ';;;BU\)') { $acesToAdd += "(A;;GRGX;;;BU)" }
+            if ($acesToAdd) {
+                $taskObj.SetSecurityDescriptor($sddl + $acesToAdd, 0)
+            }
+        } catch {}
+
+        $taskFilePath = "$env:SystemRoot\System32\Tasks\$taskName"
+        if (Test-Path $taskFilePath) {
+            & icacls.exe $taskFilePath /grant "*S-1-5-32-545:(RX)" "*S-1-5-11:(RX)" /Q | Out-Null
+        }
+
+        # Public Desktop Shortcut
+        $publicDesktop = [Environment]::GetFolderPath("CommonDesktopDirectory")
+        $shortcutFileName = "Sitzung zur$([char]0x00FC)cksetzen.lnk"
+        $shortcutPath = Join-Path $publicDesktop $shortcutFileName
+        $targetCmd = Join-Path $stagedScripts "Start-UserReset.cmd"
+        if (-not (Test-Path $targetCmd)) { $targetCmd = "C:\Windows\System32\schtasks.exe" }
+
+        $lnk = $wsh.CreateShortcut($shortcutPath)
+        $lnk.TargetPath = $targetCmd
+        if ($targetCmd -like "*schtasks.exe") {
+            $lnk.Arguments = "/run /tn `"Caritas-ResetUserSession`""
+        }
+        $lnk.IconLocation = "$env:SystemRoot\System32\shell32.dll,238"
+        $lnk.Description = "Setzt das Benutzerkonto 'User' und den Papierkorb auf den sauberen Ausgangszustand zurück."
+        $lnk.WorkingDirectory = Split-Path $targetCmd -Parent
+        $lnk.Save()
+        Write-Host "[+] Desktop-Verknüpfung 'Sitzung zurücksetzen' auf öffentlichem Desktop bereitgestellt." -ForegroundColor Green
+    }
+} catch {
+    Write-Host "[-] Warnung bei der Bereitstellung der Sitzungs-Zurücksetzung: $_" -ForegroundColor Yellow
+}
+
 # 8. Provision Standard Taskbar Layout
 Write-Host "[*] Konfiguriere standardisiertes Taskleisten-Layout..." -ForegroundColor Cyan
 try {

@@ -77,9 +77,19 @@
   - Enhanced `Process-ProgressLine` to strip secondary log level/category tags (`[INFO]`, `[ACTION]`, `[START]`, `[DONE]`, `[WARN]`, `[ERROR]`, `[DESKTOP-DEPLOY]`) and capture checkmark summary lines (`✓`, `✔`) so progress bar percentage and current step indicators update in real-time.
   - Bumped version to 1.1.1 across `version.json`, `scripts/Caritas-ControlCenter-GUI.ps1`, `scripts/Caritas-ControlCenter.ps1`, `setup/build-pdf.py`, and recompiled `HANDBUCH.pdf`.
   - Verified UTF-8 with BOM encoding across all `.ps1` files.
+- Unprivileged Session Reset & Complete Recycle Bin Purge (v1.1.2):
+  - Root Cause Analysis (Shortcuts failing for 'User'): In `scripts/Reset-CaritasUserProfile.ps1`, the Task Scheduler COM security descriptor update failed silently due to an invalid SDDL ACE syntax (`(A;;0x12019f;;;BU)` with '0x' prefix) and requesting DACL-only `GetSecurityDescriptor(4)`. Fixed by querying the complete security descriptor via `GetSecurityDescriptor(15)` and appending syntactically valid SDDL ACEs `(A;;GRGX;;;AU)` and `(A;;GRGX;;;BU)` granting Generic Read and Generic Execute to Authenticated Users and Built-in Users.
+  - Created standalone batch launcher [`scripts/Start-UserReset.cmd`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/scripts/Start-UserReset.cmd) with UTF-8 console output, user-facing status feedback, and error pausing, and updated the public desktop shortcut `Sitzung zurücksetzen.lnk` to point to this launcher.
+  - Root Cause Analysis (Recycle Bin items retained): Native `Win32_UserProfile.Delete()` and directory removal of `C:\Users\User` only purges user profile data and registry hives, leaving NTFS volume-level Recycle Bin stores (`C:\$Recycle.Bin\<User-SID>`) intact. Implemented Step 5 in [`scripts/Reset-CaritasUserProfile.ps1`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/scripts/Reset-CaritasUserProfile.ps1) resolving all fixed drives and recursively deleting `$drive\$Recycle.Bin\<SID>` for `User` and orphaned non-admin accounts with attribute normalization, PowerShell removal, and kernel-level `rd /s /q` fallback.
+  - Added `-SkipTask` parameter to prevent recursive task re-registration during task execution and ensured `-RebootAfterReset` is triggered on shortcut-initiated resets.
+  - Integrated task and desktop shortcut provisioning into [`setup/Install-CaritasEnvironment.ps1`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/setup/Install-CaritasEnvironment.ps1) (Step 7.1).
+  - Updated [`HANDBUCH.md`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/HANDBUCH.md), recompiled publication-grade [`HANDBUCH.pdf`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/HANDBUCH.pdf) (v1.1.2), and verified UTF-8 with BOM encoding across all `.ps1` files.
 
 ## 2. Active Intent & Delivered Artifacts
 All modules, launchers, and deployment artifacts are authored, validated, and verified:
+- **Patron Session Reset Launcher & Recycle Bin Purge:**
+  - Files: [`scripts/Start-UserReset.cmd`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/scripts/Start-UserReset.cmd), [`scripts/Reset-CaritasUserProfile.ps1`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/scripts/Reset-CaritasUserProfile.ps1).
+  - Dedicated batch launcher providing patron feedback; SDDL `GRGX` access for standard users; volume-level Recycle Bin purge across all drives.
 - **Administrator Account Protection & Recovery Module:**
   - Files: [`scripts/Ensure-CaritasAdminAccounts.ps1`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/scripts/Ensure-CaritasAdminAccounts.ps1), [`scripts/Deploy-CaritasAdminDesktop.ps1`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/scripts/Deploy-CaritasAdminDesktop.ps1).
   - Standalone scripts provisioning `CaritasAdmin`, activating the built-in `Administrator` with password `CariUntertasse-STMK-2025!`, staging the suite in `C:\ProgramData\CaritasScripts`, and deploying `CaritasScripts` and launchers directly to `CaritasAdmin`'s desktop.
@@ -91,7 +101,7 @@ All modules, launchers, and deployment artifacts are authored, validated, and ve
   - Pre-flight verification guaranteeing admin accounts exist before demoting or configuring autologon for `User`.
 - **Handbook Documentation:**
   - Files: [`HANDBUCH.md`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/HANDBUCH.md), [`HANDBUCH.pdf`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/HANDBUCH.pdf), and [`setup/build-pdf.py`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/setup/build-pdf.py).
-  - Complete documentation of administrative credentials, 6-phase onboarding, and Section 9 emergency remediation procedures.
+  - Complete documentation of administrative credentials, 7-phase profile reset, and Section 9 emergency remediation procedures.
 - **Zero-Touch USB Response File:**
   - File: `setup/autounattend.xml`.
   - Fully unattended Windows 11 Pro installation with LabConfig bypass for donated hardware, GPT partitioning, Austrian locale, and `CaritasAdmin` user provisioning.
@@ -121,5 +131,5 @@ All modules, launchers, and deployment artifacts are authored, validated, and ve
   - `Autounattend_Xml_Exists`: True (`8559` bytes)
 
 ## 4. Pending Decisions & Next Steps
-- Release v1.1.1 published to GitHub.
+- Release v1.1.2 published to GitHub.
 
