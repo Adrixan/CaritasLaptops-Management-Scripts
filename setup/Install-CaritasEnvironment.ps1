@@ -181,6 +181,35 @@ try {
     Write-Host "[-] Warnung bei der Discord-Bereinigung: $_" -ForegroundColor Yellow
 }
 
+# 6.8 Ensure Administrative Accounts (CaritasAdmin & Administrator)
+Write-Host "[*] Sichere Administrator-Konten (CaritasAdmin & Administrator)..." -ForegroundColor Cyan
+try {
+    $ensureScript = Join-Path $scriptsDir "Ensure-CaritasAdminAccounts.ps1"
+    if (Test-Path $ensureScript) {
+        & "$ensureScript"
+    } else {
+        $adminGroupName = (Get-LocalGroup -SID 'S-1-5-32-544').Name
+        $secAdminPass = ConvertTo-SecureString "CariUntertasse-STMK-2025!" -AsPlainText -Force
+        $cAdmin = Get-LocalUser -Name "CaritasAdmin" -ErrorAction SilentlyContinue
+        if (-not $cAdmin) {
+            New-LocalUser -Name "CaritasAdmin" -Password $secAdminPass -FullName "Caritas Administrator" -Description "Lokales Haupt-Administrationskonto" -PasswordNeverExpires | Out-Null
+        } else {
+            Set-LocalUser -Name "CaritasAdmin" -Password $secAdminPass -PasswordNeverExpires $true -ErrorAction SilentlyContinue | Out-Null
+        }
+        Enable-LocalUser -Name "CaritasAdmin" -ErrorAction SilentlyContinue | Out-Null
+        Add-LocalGroupMember -Group $adminGroupName -Member "CaritasAdmin" -ErrorAction SilentlyContinue | Out-Null
+
+        $bAdmin = Get-LocalUser -ErrorAction SilentlyContinue | Where-Object { $_.SID.Value -match '-500$' }
+        if ($bAdmin) {
+            Set-LocalUser -InputObject $bAdmin -Password $secAdminPass -PasswordNeverExpires $true -ErrorAction SilentlyContinue | Out-Null
+            Enable-LocalUser -InputObject $bAdmin -ErrorAction SilentlyContinue | Out-Null
+        }
+    }
+    Write-Host "[+] Administrator-Konten (CaritasAdmin und Administrator) erfolgreich abgesichert." -ForegroundColor Green
+} catch {
+    Write-Host "[-] Fehler beim Absichern der Administrator-Konten: $_" -ForegroundColor Yellow
+}
+
 # 7. Configure Automatic Logon for Standard Account 'User'
 Write-Host "[*] Konfiguriere Benutzerkonto 'User' und automatische Anmeldung (Autologon)..." -ForegroundColor Cyan
 try {

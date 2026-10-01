@@ -37,6 +37,9 @@ def build():
         "=== 4.3 Ausführen der 1-Klick-Erst-Einrichtung",
         "== 5. Microsoft Office",
         "== 7. Laufender Betrieb",
+        "== 9. Notfallwiederherstellung",
+        "==== Option 2: Windows-Wiederherstellungsumgebung",
+        "==== Option 4: Abgesicherter Modus",
     )
     for bl in body_lines:
         if bl.startswith("= Caritas Laptops: Installations- und Betriebshandbuch"):
@@ -55,9 +58,16 @@ def build():
     body = body.replace("julia.bretterklieber@caritas-steiermark.at", "julia.bretterklieber@\u200bcaritas-steiermark.at")
 
     # 2. Optimize column widths for tables
+    # Credentials table in Section 1
     body = re.sub(
-        r"#table\(\s*columns:\s*\(\s*25%,\s*25%,\s*25%,\s*25%\s*\)",
-        r"#table(\n    columns: (18%, 34%, 22%, 26%)",
+        r"#table\(\s*columns:\s*\(\s*25%,\s*25%,\s*25%,\s*25%\s*\),\s*align:\s*\(left,left,left,left,\),\s*table\.header\(\[Bereich\]",
+        r"#table(\n    columns: (18%, 34%, 22%, 26%),\n    align: (left,left,left,left,),\n    table.header([Bereich]",
+        body
+    )
+    # Remediation table in Section 9
+    body = re.sub(
+        r"#table\(\s*columns:\s*\(\s*25%,\s*25%,\s*25%,\s*25%\s*\),\s*align:\s*\(left,left,left,left,\),\s*table\.header\(\[Methode\]",
+        r"#table(\n    columns: (26%, 32%, 13%, 29%),\n    align: (left,left,left,left,),\n    table.header([Methode]",
         body
     )
     body = re.sub(
@@ -82,7 +92,7 @@ def build():
         columns: (1fr, auto),
         align: (left, right),
         text(size: 8pt, fill: rgb("#64748B"), weight: "medium")[Caritas Steiermark · IT-Administration],
-        text(size: 8pt, fill: rgb("#C41230"), weight: "bold")[Caritas Laptop Management-Suite v1.0.9]
+        text(size: 8pt, fill: rgb("#C41230"), weight: "bold")[Caritas Laptop Management-Suite v1.1.0]
       )
       #v(-2pt)
       #line(length: 100%, stroke: 0.5pt + rgb("#E2E8F0"))
@@ -150,6 +160,12 @@ def build():
   v(3pt)
 }
 
+#show heading.where(level: 4): it => {
+  v(9pt)
+  text(fill: rgb("#334155"), weight: "bold", size: 9pt)[#it.body]
+  v(3pt)
+}
+
 #show table: set text(size: 8pt)
 #show table.cell.where(y: 0): set text(weight: "bold", fill: white)
 #set table(
@@ -172,7 +188,7 @@ def build():
     #v(3pt)
     #text(fill: rgb("#FEE2E2"), size: 12pt, weight: "medium")[Installations- und Betriebshandbuch]\
     #v(2pt)
-    #text(fill: rgb("#FECACA"), size: 8.5pt)[Version 1.0.9 · Caritas Steiermark · Stand: September 2026]
+    #text(fill: rgb("#FECACA"), size: 8.5pt)[Version 1.1.0 · Caritas Steiermark · Stand: Oktober 2026]
   ]
 ]
 

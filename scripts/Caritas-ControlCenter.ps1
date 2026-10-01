@@ -74,7 +74,7 @@ function Get-LocalVersion {
             return $v.version
         } catch {}
     }
-    return "1.0.0"
+    return "1.1.0"
 }
 
 # 2. Fast-Fail Self-Update Check (2s Timeout)
@@ -193,11 +193,11 @@ function Invoke-MasterOnboarding {
     Write-Host "   CARITAS LAPTOP ERST-EINRICHTUNG (ALL-IN-ONE SETUP)         " -ForegroundColor Green
     Write-Host "==============================================================" -ForegroundColor Cyan
     Write-Host "Dieses Verfahren richtet ein neu gespendetes Gerät vollständig ein:"
-    Write-Host "- Phase 1: Software-Bereinigung & Winget-Installation"
-    Write-Host "- Phase 2: Windows Update, Firmware & Treiber"
+    Write-Host "- Phase 1: Administrator-Absicherung (CaritasAdmin & Administrator aktivieren)"
+    Write-Host "- Phase 2: Software-Synchronisation, Bereinigung & Windows Updates"
     Write-Host "- Phase 3: Sicherheits-, Energie- & Hardening-Richtlinien"
     Write-Host "- Phase 4: Standard-Programme (Firefox, VLC, Office) & uBlock"
-    Write-Host "- Phase 5: Browser-Datenschutz, USB-Sperre & Desktop-Hygiene"
+    Write-Host "- Phase 5: Browser-Datenschutz, USB-Sperre & Speicher-Wartung"
     Write-Host "- Phase 6: Benutzerkonto 'User' & Sitzungs-Reset einrichten"
     Write-Host "==============================================================" -ForegroundColor Cyan
     Write-Host ""
@@ -214,19 +214,22 @@ function Invoke-MasterOnboarding {
     $startTime = Get-Date
     Write-CCLog "Starting Master Onboarding routine"
 
-    Write-Host "`n[Schritt 1/5] Synchronisiere Software & installiere Updates..." -ForegroundColor Yellow
+    Write-Host "`n[Schritt 1/6] Sichere Administrator-Zugang (CaritasAdmin & Administrator)..." -ForegroundColor Yellow
+    & "$scriptDir\Ensure-CaritasAdminAccounts.ps1"
+
+    Write-Host "`n[Schritt 2/6] Synchronisiere Software & installiere Updates..." -ForegroundColor Yellow
     & "$scriptDir\Sync-CaritasSoftware.ps1"
 
-    Write-Host "`n[Schritt 2/5] Wende System-Hardening & Energie-Richtlinien an..." -ForegroundColor Yellow
+    Write-Host "`n[Schritt 3/6] Wende System-Hardening & Energie-Richtlinien an..." -ForegroundColor Yellow
     & "$scriptDir\Configure-CaritasHardening.ps1"
 
-    Write-Host "`n[Schritt 3/5] Richte Standard-Programme & Werbeblocker ein..." -ForegroundColor Yellow
+    Write-Host "`n[Schritt 4/6] Richte Standard-Programme & Werbeblocker ein..." -ForegroundColor Yellow
     & "$scriptDir\Configure-CaritasDefaults.ps1"
 
-    Write-Host "`n[Schritt 4/5] Richte Datenschutz, USB-Sperre & Speicher-Wartung ein..." -ForegroundColor Yellow
+    Write-Host "`n[Schritt 5/6] Richte Datenschutz, USB-Sperre & Speicher-Wartung ein..." -ForegroundColor Yellow
     & "$scriptDir\Configure-CaritasMaintenanceAndPrivacy.ps1"
 
-    Write-Host "`n[Schritt 5/5] Richte Benutzerkonto 'User' & Clean Slate Reset ein..." -ForegroundColor Yellow
+    Write-Host "`n[Schritt 6/6] Richte Benutzerkonto 'User' & Clean Slate Reset ein..." -ForegroundColor Yellow
     & "$scriptDir\Reset-CaritasUserProfile.ps1" -InstallAll
 
     $duration = [Math]::Round(((Get-Date) - $startTime).TotalMinutes, 1)
@@ -301,14 +304,15 @@ while ($true) {
     Write-Host "  [4] Standard-Programme & Werbeblocker (Firefox, VLC, uBlock)"
     Write-Host "  [5] Sicherheits- & Energie-Richtlinien (Hardening, kein Standby)"
     Write-Host "  [6] Wartungs-, Datenschutz- & USB-Sperre (Passwörter, USB-Hygiene)"
-    Write-Host "  [7] Benutzerkonto 'User' komplett zurücksetzen (Clean Slate)" -ForegroundColor Yellow
-    Write-Host "  [8] Grafische Benutzeroberfläche (GUI) öffnen" -ForegroundColor Cyan
-    Write-Host "  [9] Nach Skript-Updates suchen"
+    Write-Host "  [7] Administrator-Konten sicherstellen (CaritasAdmin & Administrator)" -ForegroundColor Cyan
+    Write-Host "  [8] Benutzerkonto 'User' komplett zurücksetzen (Clean Slate)" -ForegroundColor Yellow
+    Write-Host "  [9] Grafische Benutzeroberfläche (GUI) öffnen"
+    Write-Host "  [U] Nach Skript-Updates suchen"
     Write-Host "  [L] Audit-Logs anzeigen"
     Write-Host "  [0] Beenden"
     Write-Host ""
     Write-Host "==============================================================" -ForegroundColor Cyan
-    $selection = Read-Host "Bitte wählen Sie eine Option [0-9, L]"
+    $selection = Read-Host "Bitte wählen Sie eine Option [0-9, U, L]"
 
     switch ($selection.ToUpper()) {
         "1" { Invoke-MasterOnboarding }
@@ -344,11 +348,17 @@ while ($true) {
         }
         "7" {
             Clear-Host
+            Write-Host "Sichere Administrator-Konten (CaritasAdmin & Administrator)..." -ForegroundColor Yellow
+            & "$scriptDir\Ensure-CaritasAdminAccounts.ps1"
+            Read-Host "`nAdministrator-Konten eingerichtet. Eingabetaste zum Fortfahren..."
+        }
+        "8" {
+            Clear-Host
             Write-Host "Setze Benutzerkonto 'User' auf den Ausgangszustand zurück..." -ForegroundColor Yellow
             & "$scriptDir\Reset-CaritasUserProfile.ps1" -TargetUsername "User"
             Read-Host "`nBenutzer zurückgesetzt. Eingabetaste zum Fortfahren..."
         }
-        "8" {
+        "9" {
             $guiScript = "$scriptDir\Caritas-ControlCenter-GUI.ps1"
             if (Test-Path $guiScript) {
                 Write-Host "Starte grafische Benutzeroberfläche..." -ForegroundColor Cyan
@@ -359,7 +369,7 @@ while ($true) {
                 Start-Sleep -Seconds 2
             }
         }
-        "9" {
+        "U" {
             Check-ForUpdates -Interactive
             Read-Host "Eingabetaste zum Fortfahren..."
         }

@@ -282,6 +282,13 @@ if (-not $DryRun) {
     Set-LocalUser -Name $TargetUsername -PasswordNeverExpires $true -UserMayChangePassword $true | Out-Null
     Add-LocalGroupMember -Group $usersGroupName -Member $TargetUsername -ErrorAction SilentlyContinue
 
+    # Ensure administrative baseline exists (CaritasAdmin & Administrator) before modifying admin groups
+    $ensureAdminScript = Join-Path $scriptDir "Ensure-CaritasAdminAccounts.ps1"
+    if (Test-Path $ensureAdminScript) {
+        Write-ResetLog "  -> Stelle administrative Konten vor Privilegien-Bereinigung sicher..." "INFO" ([ConsoleColor]::Gray)
+        & "$ensureAdminScript" -AdminPassword "CariUntertasse-STMK-2025!"
+    }
+
     # Ensure target is not an administrator
     $isAdmin = Get-LocalGroupMember -Group $adminGroupName -ErrorAction SilentlyContinue | Where-Object { $_.Name -like "*\$TargetUsername" }
     if ($isAdmin) {

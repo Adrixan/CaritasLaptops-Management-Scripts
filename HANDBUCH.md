@@ -11,6 +11,7 @@ Die folgenden Zugangsdaten gelten standardisiert für alle Laptops der Organisat
 | Bereich | Benutzername / Kennung | Kennwort / PIN | Zweck |
 | :--- | :--- | :--- | :--- |
 | Windows Administrator | `CaritasAdmin` (oder `Cari Tas`) | `CariUntertasse-STMK-2025!` | Lokale Geräteverwaltung und Wartung |
+| Lokaler Administrator (Notfall) | `Administrator` (Built-in) | `CariUntertasse-STMK-2025!` | Integriertes Notfallkonto (stets aktiviert) |
 | Windows Standard-Nutzer | `User` | `Caritas2412!` | Geteiltes Patron-Konto für Klientinnen und Klienten |
 | BIOS / UEFI | Administrator | `WirHelfen2025!` bzw. `WirHelfen2025` | Hardwareschutz und Boot-Sperre |
 | Microsoft-Konto (Fallback) | `caritas-laptops@outlook.com` | `CariUntertasse-STMK-2025!` | Bei Bedarf für OOBE-Ersteinrichtung |
@@ -103,28 +104,32 @@ Die gesamte Systemkonfiguration, Software-Installation, Härtung, Benutzeranlage
 Auf die grüne Hauptschaltfläche klicken:
 `[▶ Erst-Einrichtung jetzt starten]`
 
-Den Dialog bestätigen. Das System führt nun fünf vollautomatisierte Phasen durch:
-
-- **Phase 1: Software-Synchronisation & Bereinigung**
+Den Dialog bestätigen. Das System führt nun sechs vollautomatisierte Phasen durch:
+- **Phase 1: Administrator-Sicherheit & Konten-Provisionierung**
+  - Legt das lokale Administratorkonto `CaritasAdmin` an, aktiviert es, vergibt das Kennwort `CariUntertasse-STMK-2025!` und setzt das Flag `PasswordNeverExpires`.
+  - Aktiviert das integrierte Windows-Konto `Administrator` (SID-Endung `-500`) und synchronisiert das administrative Kennwort.
+  - Gewährleistet die Mitgliedschaft beider Konten in der lokalen Gruppe `Administratoren`, noch bevor Richtlinien oder Profile modifiziert werden.
+  - Sichert die Caritas Management-Suite dauerhaft in `C:\ProgramData\CaritasScripts` und platziert sie automatisch via geplanter Aufgabe `Caritas-DeployAdminDesktop` auf dem Desktop von `CaritasAdmin` (`Desktop\CaritasScripts`), inklusive Starter-Verknüpfungen für Kontrollzentrum, Terminal und Handbuch.
+- **Phase 2: Software-Synchronisation & Bereinigung**
   - Installiert alle freigegebenen Standardanwendungen über den Windows Paketmanager (`winget`).
   - Entfernt Microsoft Werbe-Apps (News, Wetter, Solitaire, Xbox, Zune).
   - Deinstalliert Discord und entfernt den Discord System Helper mitsamt Squirrel-Hintergrunddiensten vollständig.
-- **Phase 2: Windows Update & Treiber-Synchronisation**
+- **Phase 3: Windows Update & Treiber-Synchronisation**
   - Sucht online nach aktuellen Windows-Sicherheitsupdates.
   - Installiert herstellerspezifische OEM-Firmware und Treiber für Audio, WLAN, Chipsatz und Grafik (Intel, Realtek, Lenovo, HP, Acer).
-- **Phase 3: System-Härtung & Energie-Konfiguration**
+- **Phase 4: System-Härtung & Energie-Konfiguration**
   - Konfiguriert kontinuierliche Verfügbarkeit: Deaktiviert Standby-Timeout, Ruhezustand und Display-Abschaltung bei Netz- und Akkubetrieb.
   - Schaltet den Ruhezustand (`powercfg /hibernate off`) ab, um SSD-Speicherplatz freizugeben.
   - Aktiviert Windows Defender PUA-Schutz (Potenziell unerwünschte Anwendungen) und Echtzeitschutz.
   - Deaktiviert unsichere Legacy-Protokolle: SMBv1, LLMNR und NetBIOS über TCP/IP.
   - Setzt strikte Datenschutz-Gruppenrichtlinien für Standort, Telemetrie und Eingabepersonalisierung.
-- **Phase 4: Standard-Programme, Suchmaschine & Werbeblocker**
+- **Phase 5: Standard-Programme, Suchmaschine & Werbeblocker**
   - Setzt Mozilla Firefox als Standardbrowser und PDF-Betrachter, VLC Media Player für alle Medienformate, Microsoft Office / LibreOffice für Dokumente sowie 7-Zip für Archive.
   - Erzwingt Brave Search (`https://search.brave.com`) als unveränderliche Startseite, Suchmaschine und Neuer-Tab-Seite auf Firefox, Chrome und Edge.
   - Installiert die uBlock Origin Erweiterung mit kuratierten Filterlisten (uBlock, EasyList, EasyPrivacy, Malware-Schutz, EasyList Germany sowie Cookie-Banner-Unterdrückung).
   - Unterdrückt Firefox-Willkommensdialoge (`about:welcome`), Nutzungsbedingungen (`SkipTermsOfUse`) und Autostart beim Login.
   - Konfiguriert das einheitliche Windows 11 Taskleisten-Layout: Heftet Datei-Explorer, Firefox, Word, Excel und PowerPoint an; entfernt Microsoft Edge, Microsoft Store und Outlook.
-- **Phase 5: Benutzerkonto 'User' & Wartungstasks**
+- **Phase 6: Benutzerkonto 'User' & Wartungstasks**
   - Erstellt das Standard-Gastkonto `User` mit Kennwort `Caritas2412!`.
   - Aktiviert die automatische Anmeldung (Autologon) auf der Windows-Konsole beim Systemstart.
   - Lässt `ForceAutoLogon` deaktiviert, sodass manuelles Sperren (`Win+L`) zuverlässig gesperrt bleibt.
@@ -209,8 +214,95 @@ Alle administrativen Aktionen protokollieren ausführlich in den Unterordner `lo
 
 | Protokolldatei | Zweck |
 | :--- | :--- |
+| `logs\AdminAccounts.log` | Protokoll der Administrator-Provisionierung (`CaritasAdmin` und `Administrator`) |
 | `logs\SoftwareSync.log` | Protokoll der winget-Paketinstallationen und Windows-Updates |
 | `logs\Hardening.log` | Protokoll der Energieeinstellungen, Defender- und Netzwerkhärtung |
 | `logs\Defaults.log` | Protokoll der Dateizuordnungen, Firefox-Richtlinien und Taskleisten-Pins |
 | `logs\UserReset.log` | Protokoll der Profilbereinigung und Kennwort-Synchronisation |
 | `logs\MaintenancePrivacy.log` | Protokoll der Browser-Datenschutzrichtlinien und USB-Sperren |
+
+---
+
+## 9. Notfallwiederherstellung und Administrator-Zugriff
+
+Sollte auf einem Laptop nach Ausführung von Einrichtungs-, Härtungs- oder Bereinigungsschritten der administrative Zugriff blockiert sein, stehen standardisierte Wiederherstellungsverfahren zur Verfügung.
+
+### 9.1 Technische Ursachenanalyse
+Der Verlust administrativer Rechte oder die scheinbare Nichtverfügbarkeit von Administratorkonten beruht typischerweise auf dem Zusammenspiel dreier Systemmechanismen:
+- **Microsoft-Konto Sperre (`NoConnectedUser = 3`)**: Wurde Windows manuell mit einem Microsoft-Konto (z. B. `caritas-laptops@outlook.com`) aufgesetzt, blendet die Härtungsrichtlinie alle Microsoft-Konten aus und sperrt deren UAC-Bestätigung. Das Konto bleibt intakt, ist jedoch im Anmeldebildschirm und bei UAC-Abfragen unsichtbar.
+- **Autologon-Dauerschleife**: Durch die automatische Anmeldung meldet Windows nach jedem Neustart sofort das Standardkonto `User` an.
+- **Entfernung aus der Administratoren-Gruppe**: Wurde Windows manuell unter dem Benutzernamen `User` als Administrator eingerichtet, entzieht das Bereinigungsskript diesem Konto die administrativen Rechte, um das sichere Gastkonto bereitzustellen. Ohne vorherige Anlage eines zweiten Administrators verbleibt das System ohne aktiven lokalen Verwalter.
+
+### 9.2 Automatisierte Prävention in der Management-Suite
+Die Management-Suite verhindert dieses Szenario durch mehrstufige Sicherheitsnetze:
+- **Phase 1 im Onboarding**: Die Erst-Einrichtung führt vor allen anderen Operationen das Modul [`scripts/Ensure-CaritasAdminAccounts.ps1`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/scripts/Ensure-CaritasAdminAccounts.ps1) aus. Es erstellt `CaritasAdmin`, aktiviert das integrierte Konto `Administrator` mit dem Standardkennwort `CariUntertasse-STMK-2025!` und platziert die vollständige Suite inklusive Starter-Verknüpfungen direkt auf dem Desktop von `CaritasAdmin`.
+- **Pre-Flight-Prüfung bei Profil-Resets**: [`scripts/Reset-CaritasUserProfile.ps1`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/scripts/Reset-CaritasUserProfile.ps1) führt dieselbe Überprüfung aus, bevor Gruppenmitgliedschaften des Kontos `User` modifiziert werden.
+- **Eigene Schaltfläche im Kontrollzentrum**: Im grafischen Kontrollzentrum steht die Aktionskarte **ADMINISTRATOR-ZUGANG ABSICHERN** mit der Schaltfläche `[🛡 Administrator-Konten sicherstellen]` zur Verfügung. In der TUI erfolgt der Aufruf über Menüpunkt `[7]`.
+- **Automatische Desktop-Bereitstellung**: Über das Modul [`scripts/Deploy-CaritasAdminDesktop.ps1`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/scripts/Deploy-CaritasAdminDesktop.ps1) und die geplante Aufgabe `Caritas-DeployAdminDesktop` wird die Skriptsammlung permanent in `C:\ProgramData\CaritasScripts` gesichert und beim ersten Login von `CaritasAdmin` automatisch nach `C:\Users\CaritasAdmin\Desktop\CaritasScripts` synchronisiert.
+
+### 9.3 Wiederherstellungsverfahren (Schritt-für-Schritt)
+
+#### Option 1: Autologon-Bypass via Umschalttaste (Shift)
+Wenn `CaritasAdmin` bereits auf dem System existiert, aber das Gerät beim Booten direkt in das Konto `User` wechselt:
+- Im Startmenü auf das Profilbild oder Ein/Aus-Symbol klicken und **Abmelden** wählen, oder den Rechner neu starten.
+- Während des Abmelde- bzw. Bootvorgangs die linke **Umschalttaste (Shift)** gedrückt halten.
+- Windows unterbricht die automatische Anmeldung und zeigt die Benutzerauswahl.
+- Das Konto **CaritasAdmin** auswählen und mit dem Kennwort `CariUntertasse-STMK-2025!` anmelden.
+
+#### Option 2: Windows-Wiederherstellungsumgebung (WinRE) und Registrierungs-Korrektur
+Wenn der UAC-Dialog kein Kennwortfeld anzeigt oder das Microsoft-Konto gesperrt ist:
+- Auf dem Anmeldebildschirm auf das **Ein/Aus-Symbol** (unten rechts) klicken.
+- Die **Umschalttaste (Shift)** gedrückt halten und auf **Neu starten** klicken.
+- Im blauen Wiederherstellungsmenü navigieren: **Problembehandlung** -> **Erweiterte Optionen** -> **Eingabeaufforderung**.
+- Den Laufwerksbuchstaben prüfen (`dir C:\Windows\System32\config\SOFTWARE`) und die Registrierungskorrektur ausführen:
+```cmd
+reg load HKLM\OFFLINESOFT C:\Windows\System32\config\SOFTWARE
+reg add "HKLM\OFFLINESOFT\Microsoft\Windows\CurrentVersion\Policies\System" /v NoConnectedUser /t REG_DWORD /d 0 /f
+reg add "HKLM\OFFLINESOFT\Microsoft\Windows NT\CurrentVersion\Winlogon" /v AutoAdminLogon /t REG_SZ /d 0 /f
+reg unload HKLM\OFFLINESOFT
+wpeutil reboot
+```
+- Nach dem Neustart erscheint der reguläre Anmeldebildschirm. Das Microsoft-Konto steht für Logins und administrative Bestätigungen wieder zur Verfügung.
+
+#### Option 3: WinRE Hilfsprogramm-Tausch (utilman.exe) zur Kontoneuanlage
+Falls auf dem System kein administratives Konto mehr aktiv ist:
+- In der WinRE-Eingabeaufforderung (Schritte wie in Option 2) das Hilfsprogramm für barrierefreie Bedienung temporär durch die Eingabeaufforderung ersetzen:
+```cmd
+copy C:\Windows\System32\utilman.exe C:\Windows\System32\utilman.exe.bak
+copy /y C:\Windows\System32\cmd.exe C:\Windows\System32\utilman.exe
+wpeutil reboot
+```
+- Auf dem Windows-Anmeldebildschirm unten rechts auf das Symbol für **Erleichterte Bedienung** (Barrierefreiheit) klicken.
+- Es öffnet sich eine administrative Eingabeaufforderung mit `SYSTEM`-Berechtigung.
+- Das Administratorkonto anlegen und das integrierte Notfallkonto aktivieren:
+```cmd
+net user CaritasAdmin CariUntertasse-STMK-2025! /add
+net localgroup Administratoren CaritasAdmin /add
+net user Administrator CariUntertasse-STMK-2025! /active:yes
+exit
+```
+- Als **CaritasAdmin** mit Kennwort `CariUntertasse-STMK-2025!` anmelden.
+- Die Originaldatei in einer administrativen PowerShell wiederherstellen:
+```powershell
+Copy-Item -Path "C:\Windows\System32\utilman.exe.bak" -Destination "C:\Windows\System32\utilman.exe" -Force
+Remove-Item -Path "C:\Windows\System32\utilman.exe.bak" -Force
+```
+
+#### Option 4: Abgesicherter Modus (Safe Mode)
+Wenn alle lokalen Administratorkonten deaktiviert oder gelöscht sind:
+- In WinRE: **Problembehandlung** -> **Erweiterte Optionen** -> **Starteinstellungen** -> **Neu starten**.
+- Beim Neustart die Zifferntaste **4** oder Funktionstaste **F4** drücken (Abgesicherter Modus).
+- Windows aktiviert im abgesicherten Modus automatisch das integrierte Konto `Administrator`, wenn kein anderes lokales Administratorkonto existiert.
+- Als Administrator anmelden, eine Eingabeaufforderung öffnen und `CaritasAdmin` anlegen:
+```cmd
+net user CaritasAdmin CariUntertasse-STMK-2025! /add
+net localgroup Administratoren CaritasAdmin /add
+```
+
+### 9.4 Übersicht der Wiederherstellungsmethoden
+| Methode | Voraussetzung / Szenario | Zeitaufwand | Ergebnis |
+| :--- | :--- | :--- | :--- |
+| Option 1: Shift-Bypass | `CaritasAdmin` existiert, Autologon aktiv | 1 Minute | Direkter Zugriff auf Administrator-Konto |
+| Option 2: WinRE Reg-Fix | Microsoft-Konto gesperrt (`NoConnectedUser`) | 3 Minuten | Entsperrung von Microsoft-Konto und UAC |
+| Option 3: utilman.exe Tausch | Kein Admin-Konto vorhanden, Kennwort verloren | 5 Minuten | Neuanlage von `CaritasAdmin` via SYSTEM-Rechte |
+| Option 4: Abgesicherter Modus | Keine lokalen Administratoren aktiv | 3 Minuten | Notfall-Aktivierung des Kontos `Administrator` |

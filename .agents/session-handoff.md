@@ -48,12 +48,48 @@
     - Updated release packaging workflow `.github/workflows/release.yml` to bundle and attach `HANDBUCH.pdf`.
     - Deployed `HANDBUCH.pdf` directly to test machine `CARITAS-X1-1` and uploaded asset to GitHub release `v1.0.9`.
 
+- Administrative Account Protection & Emergency Recovery:
+  - User reported losing administrative access on a computer after running the onboarding routine.
+  - Root Cause Analysis:
+    - Microsoft Account Policy Lockout: `Configure-CaritasHardening.ps1` sets `NoConnectedUser = 3`, disabling sign-in and elevation for Microsoft accounts (`caritas-laptops@outlook.com`).
+    - Autologon Loop: `Reset-CaritasUserProfile.ps1` configures Winlogon `AutoAdminLogon = 1` for standard account `User` (`Caritas2412!`), auto-logging into the standard account on every reboot.
+    - Account Demotion: If Windows was manually installed under an account named `User` with administrative rights, `Reset-CaritasUserProfile.ps1` demoted `User` from the local Administrators group without ensuring an alternative local administrator was provisioned.
+  - Implemented Standalone Module `scripts/Ensure-CaritasAdminAccounts.ps1`:
+    - Dynamically resolves the localized Administrators group via SID `S-1-5-32-544`.
+    - Creates and enables `CaritasAdmin` with standard password `CariUntertasse-STMK-2025!`, `PasswordNeverExpires = $true`, and adds it to the local Administrators group.
+    - Activates the built-in Windows `Administrator` account (SID ending in `-500`), sets the identical password, and ensures group membership.
+    - Comprehensive file-based logging to `logs\AdminAccounts.log`.
+  - Integrated into Master Onboarding & User Reset:
+    - Updated `scripts/Caritas-ControlCenter.ps1` `Invoke-MasterOnboarding`: Added Phase 1 (`Ensure-CaritasAdminAccounts.ps1`) as the initial step before any software installation, hardening, or profile adjustments.
+    - Updated `scripts/Caritas-ControlCenter.ps1` TUI menu: Added option `[7] Administrator-Konten sicherstellen (CaritasAdmin & Administrator)`.
+    - Updated `scripts/Caritas-ControlCenter-GUI.ps1`: Added dedicated card `ADMINISTRATOR-ZUGANG ABSICHERN` with action button `btnEnsureAdmin` (`🛡 Administrator-Konten sicherstellen`), updated Hero description, and added asynchronous task execution handler with log redirection.
+    - Updated `scripts/Reset-CaritasUserProfile.ps1`: Added pre-flight invocation of `Ensure-CaritasAdminAccounts.ps1` before modifying any administrative group memberships.
+    - Updated `setup/Install-CaritasEnvironment.ps1`: Added step 6.8 provisioning `CaritasAdmin` and activating `Administrator` before configuring autologon.
+  - Documented in Operational Manual:
+    - Updated `HANDBUCH.md` Section 1 (credentials table with built-in Administrator), Section 4.3 (6 onboarding phases), Section 8 (logs table).
+    - Authored Section 9: `Notfallwiederherstellung und Administrator-Zugriff` detailing the 3 technical root causes, automated prevention measures, 4 recovery procedures (Shift-Bypass, WinRE registry fix, WinRE utilman.exe swap, Safe Mode F4), and a concluding comparison table.
+    - Recompiled publication-grade `HANDBUCH.pdf` via `setup/build-pdf.py` using Typst, achieving balanced 9-page layout without orphaned headings.
+  - UTF-8 with BOM Enforcement:
+    - Verified all `.ps1` script files are encoded as UTF-8 with BOM (`utf-8-sig`) to ensure full compatibility with Windows PowerShell 5.1 and eliminate mojibake.
+
 ## 2. Active Intent & Delivered Artifacts
-All modules, launchers, and deployment artifacts are authored, validated, and verified on the target hardware (`CARITAS-X1-1`, Windows 11 Pro 64-bit):
+All modules, launchers, and deployment artifacts are authored, validated, and verified:
+
+- **Administrator Account Protection & Recovery Module:**
+  - Files: [`scripts/Ensure-CaritasAdminAccounts.ps1`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/scripts/Ensure-CaritasAdminAccounts.ps1), [`scripts/Deploy-CaritasAdminDesktop.ps1`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/scripts/Deploy-CaritasAdminDesktop.ps1).
+  - Standalone scripts provisioning `CaritasAdmin`, activating the built-in `Administrator` with password `CariUntertasse-STMK-2025!`, staging the suite in `C:\ProgramData\CaritasScripts`, and deploying `CaritasScripts` and launchers directly to `CaritasAdmin`'s desktop.
+
+- **GUI and TUI Integration:**
+  - Files: [`scripts/Caritas-ControlCenter-GUI.ps1`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/scripts/Caritas-ControlCenter-GUI.ps1), [`scripts/Caritas-ControlCenter.ps1`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/scripts/Caritas-ControlCenter.ps1).
+  - Dedicated UI card and action button `btnEnsureAdmin` in GUI; Option `[7]` in TUI; Phase 1 in Onboarding.
+
+- **Defensive Safeguards in Existing Pipelines:**
+  - Files: [`scripts/Reset-CaritasUserProfile.ps1`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/scripts/Reset-CaritasUserProfile.ps1), [`setup/Install-CaritasEnvironment.ps1`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/setup/Install-CaritasEnvironment.ps1).
+  - Pre-flight verification guaranteeing admin accounts exist before demoting or configuring autologon for `User`.
 
 - **Handbook Documentation:**
   - Files: [`HANDBUCH.md`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/HANDBUCH.md), [`HANDBUCH.pdf`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/HANDBUCH.pdf), and [`setup/build-pdf.py`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/setup/build-pdf.py).
-  - Contains full instructions for technician onboarding, zero-touch USB installation, BIOS configuration, 1-click suite execution, Office volume licensing, unattended TeamViewer setup, patron profile resets, and update management. Available both as Markdown and executive-ready A4 PDF.
+  - Complete documentation of administrative credentials, 6-phase onboarding, and Section 9 emergency remediation procedures.
 
 - **Zero-Touch USB Response File:**
   - File: `setup/autounattend.xml`.
@@ -87,5 +123,5 @@ All modules, launchers, and deployment artifacts are authored, validated, and ve
   - `Autounattend_Xml_Exists`: True (`8559` bytes)
 
 ## 4. Pending Decisions & Next Steps
-- Commit changes, tag `v1.0.9`, and push to GitHub repository `Adrixan/CaritasLaptops-Management-Scripts` to trigger the automated release workflow.
-- Monitor GitHub Actions release build.
+- Review git diff and commit changes.
+- Push updates to GitHub repository `Adrixan/CaritasLaptops-Management-Scripts`.

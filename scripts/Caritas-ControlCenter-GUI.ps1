@@ -75,7 +75,7 @@ function Get-LocalVersion {
             if ($meta.version) { return $meta.version }
         } catch {}
     }
-    return "1.0.6"
+    return "1.1.0"
 }
 
 # Version comparison function (strictly checks if remote is newer)
@@ -730,7 +730,7 @@ $xaml = @"
                 </StackPanel>
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock x:Name="lblVersionBadge" Text="Version 1.0.6" Foreground="#FEE4E2" FontSize="12" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <TextBlock x:Name="lblVersionBadge" Text="Version 1.1.0" Foreground="#FEE4E2" FontSize="12" VerticalAlignment="Center" Margin="0,0,12,0"/>
                     <Button x:Name="btnApplyUpdate" Content="⚡ Update verfügbar" Style="{StaticResource UtilityButton}" Visibility="Collapsed" Margin="0,0,8,0"/>
                     <Button x:Name="btnUpdateCheck" Content="Updates suchen" Style="{StaticResource UtilityButton}" Margin="0,0,8,0"/>
                     <Button x:Name="btnExitApp" Content="✕ Beenden" Style="{StaticResource UtilityButton}" FontWeight="Bold"/>
@@ -755,7 +755,7 @@ $xaml = @"
                         <StackPanel Orientation="Vertical">
                             <TextBlock Text="★ ERST-EINRICHTUNG (ALL-IN-ONE)" Foreground="#C41230" FontWeight="Bold" FontSize="14"/>
                             <TextBlock Text="Richtet ein gespendetes Gerät vollautomatisch schlüsselfertig ein:" Foreground="#344054" FontSize="11.5" Margin="0,4,0,0" TextWrapping="Wrap"/>
-                            <TextBlock Text="• Software-Retention &amp; Winget-Apps&#x0a;• Windows Update &amp; Treiber-Synchronisation&#x0a;• System-Hardening &amp; Dauerbetrieb (kein Standby)&#x0a;• Browser-Standards (Firefox, VLC, uBlock Origin)&#x0a;• Datenschutz, USB-Sperre &amp; Gastkonto-Setup" Foreground="#475467" FontSize="11" Margin="4,4,0,10"/>
+                            <TextBlock Text="• Administrator-Absicherung (CaritasAdmin &amp; Administrator aktivieren)&#x0a;• Software-Retention &amp; Winget-Apps&#x0a;• Windows Update &amp; Treiber-Synchronisation&#x0a;• System-Hardening &amp; Dauerbetrieb (kein Standby)&#x0a;• Browser-Standards (Firefox, VLC, uBlock Origin)&#x0a;• Datenschutz, USB-Sperre &amp; Gastkonto-Setup" Foreground="#475467" FontSize="11" Margin="4,4,0,10"/>
                             <Button x:Name="btnOnboarding" Content="▶ Erst-Einrichtung jetzt starten" Style="{StaticResource HeroButton}"/>
                         </StackPanel>
                     </Border>
@@ -785,6 +785,15 @@ $xaml = @"
                             <Button x:Name="btnDefaults" Content="Standard-Programme &amp; Werbeblocker" Style="{StaticResource ActionButton}" Margin="0,0,0,6" ToolTip="Firefox, VLC, LibreOffice, MS Office &amp; uBlock Origin"/>
                             <Button x:Name="btnHardening" Content="Sicherheits- &amp; Energie-Richtlinien" Style="{StaticResource ActionButton}" Margin="0,0,0,6" ToolTip="Defender PUA, Dauerbetrieb, LLMNR/NetBIOS-Abschaltung"/>
                             <Button x:Name="btnPrivacy" Content="Datenschutz, USB-Sperre &amp; Hygiene" Style="{StaticResource ActionButton}" ToolTip="Browser-Passwörter aus, USB-Ausführung sperren, Speicherbereinigung"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- ADMINISTRATOR-KONTEN SICHERSTELLEN -->
+                    <Border Style="{StaticResource CardPanel}">
+                        <StackPanel Orientation="Vertical">
+                            <TextBlock Text="ADMINISTRATOR-ZUGANG ABSICHERN" Foreground="#1D2939" FontWeight="Bold" FontSize="13"/>
+                            <TextBlock Text="Stellt sicher, dass das lokale Administratorkonto 'CaritasAdmin' existiert und das integrierte Konto 'Administrator' aktiv ist (beide mit Standard-Kennwort):" Foreground="#475467" FontSize="11" Margin="0,2,0,8" TextWrapping="Wrap"/>
+                            <Button x:Name="btnEnsureAdmin" Content="🛡 Administrator-Konten sicherstellen" Style="{StaticResource ActionButton}" ToolTip="Legt CaritasAdmin an, aktiviert den integrierten Administrator und synchronisiert das Standard-Kennwort"/>
                         </StackPanel>
                     </Border>
 
@@ -953,7 +962,7 @@ Add-ActivityItem -Message "Kontrollzentrum v$initialVersion bereit für Aufgaben
 # Wire Action Handlers
 $btnOnboarding.Add_Click({
     $confirm = [System.Windows.MessageBox]::Show(
-        "Möchten Sie die Erst-Einrichtung (All-in-One Setup) für dieses Gerät jetzt starten?`r`n`r`nDieser Vorgang umfasst:`r`n1. Software-Bereinigung & Winget-Apps`r`n2. Windows Update & Treiber`r`n3. Sicherheits-Hardening & Dauerbetrieb`r`n4. Standard-Programme & uBlock Origin`r`n5. Datenschutz & USB-Sperre`r`n6. Clean Slate Benutzerkonto-Reset & Autologon`r`n`r`nJe nach Internetverbindung kann dies mehrere Minuten dauern.",
+        "Möchten Sie die Erst-Einrichtung (All-in-One Setup) für dieses Gerät jetzt starten?`r`n`r`nDieser Vorgang umfasst:`r`n1. Administrator-Absicherung (CaritasAdmin & Administrator)`r`n2. Software-Bereinigung & Winget-Apps`r`n3. Windows Update & Treiber`r`n4. Sicherheits-Hardening & Dauerbetrieb`r`n5. Standard-Programme & uBlock Origin`r`n6. Datenschutz & USB-Sperre`r`n7. Clean Slate Benutzerkonto-Reset & Autologon`r`n`r`nJe nach Internetverbindung kann dies mehrere Minuten dauern.",
         "Erst-Einrichtung bestätigen",
         [System.Windows.MessageBoxButton]::YesNo,
         [System.Windows.MessageBoxImage]::Question
@@ -983,6 +992,10 @@ $btnPrivacy.Add_Click({
     Start-AsyncScript -ScriptFile "$scriptDir\Configure-CaritasMaintenanceAndPrivacy.ps1" -Arguments "" -TaskName "Datenschutz, USB-Sperre & Wartung" -TargetLog "$logDir\Maintenance.log"
 })
 
+$btnEnsureAdmin.Add_Click({
+    Start-AsyncScript -ScriptFile "$scriptDir\Ensure-CaritasAdminAccounts.ps1" -Arguments "" -TaskName "Administrator-Konten absichern" -TargetLog "$logDir\AdminAccounts.log"
+})
+
 $btnResetUser.Add_Click({
     $confirm = [System.Windows.MessageBox]::Show(
         "ACHTUNG: Möchten Sie das Benutzerprofil von 'User' wirklich vollständig zurücksetzen?`r`n`r`nAlle persönlichen Dokumente, Downloads und Verläufe des Gastkontos werden unwiderruflich gelöscht!",
@@ -1010,6 +1023,8 @@ $btnOpenLogs.Add_Click({
 $btnOpenCurrentLog.Add_Click({
     $targetLogPath = if ($global:activeTargetLog -and (Test-Path $global:activeTargetLog)) {
         $global:activeTargetLog
+    } elseif (Test-Path "$logDir\AdminAccounts.log") {
+        "$logDir\AdminAccounts.log"
     } elseif (Test-Path "$logDir\UserReset.log") {
         "$logDir\UserReset.log"
     } else {
