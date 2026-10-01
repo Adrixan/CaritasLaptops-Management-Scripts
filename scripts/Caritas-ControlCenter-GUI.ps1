@@ -75,7 +75,7 @@ function Get-LocalVersion {
             if ($meta.version) { return $meta.version }
         } catch {}
     }
-    return "1.1.0"
+    return "1.1.1"
 }
 
 # Version comparison function (strictly checks if remote is newer)
@@ -240,10 +240,15 @@ function Start-AsyncScript {
 function Process-ProgressLine {
     param([string]$Line)
 
-    # Clean date prefix for display if present
+    # 1. Clean timestamp prefix for display if present
     $cleanText = $Line -replace '^\[\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\]\s*', ''
 
-    # 1. Step detection: [Schritt X/Y] or [Step X/Y] or [Phase X/Y] or [Modul X/Y]
+    # 2. Clean secondary log level / category tags like [INFO], [ACTION], [DESKTOP-DEPLOY], etc.
+    while ($cleanText -match '^\[(INFO|ACTION|START|DONE|WARN|ERROR|DESKTOP-DEPLOY)\]\s*') {
+        $cleanText = $cleanText -replace '^\[(INFO|ACTION|START|DONE|WARN|ERROR|DESKTOP-DEPLOY)\]\s*', ''
+    }
+
+    # 3. Step detection: [Schritt X/Y] or [Step X/Y] or [Phase X/Y] or [Modul X/Y]
     if ($cleanText -match '\[(?:Schritt|Step|Phase|Modul|Module)\s+(\d+)\/(\d+)\]\s*(.*)') {
         $cur = [int]$matches[1]
         $tot = [int]$matches[2]
@@ -258,7 +263,7 @@ function Process-ProgressLine {
         return
     }
 
-    # 2. Percentage progress detection: PROGRESS: X% - Description
+    # 4. Percentage progress detection: PROGRESS: X% - Description
     if ($cleanText -match 'PROGRESS:\s*(\d+)%\s*-\s*(.*)') {
         $pct = [int]$matches[1]
         $desc = $matches[2].Trim()
@@ -269,7 +274,7 @@ function Process-ProgressLine {
         return
     }
 
-    # 3. Substep arrows: -> Description
+    # 5. Substep arrows: -> Description
     if ($cleanText -match '^\s*->\s*(.*)') {
         $sub = $matches[1].Trim()
         $lblCurrentStep.Text = $sub
@@ -277,9 +282,17 @@ function Process-ProgressLine {
         return
     }
 
-    # 4. Status badges
+    # 6. Checkmark summary lines: ✓ Description or ✔ Description
+    if ($cleanText -match '^\s*[✓✔]\s*(.*)') {
+        $sub = $matches[1].Trim()
+        Add-ActivityItem -Message "✔ $sub" -Type "Success"
+        $lblCurrentStep.Text = $sub
+        return
+    }
+
+    # 7. Status badges
     if ($cleanText -match '\[OK\]|\[SUCCESS\]|\[ERFOLG\]') {
-        $msg = $cleanText -replace '^\[.*?\]\s*', ''
+        $msg = $cleanText -replace '^.*?\[(OK|SUCCESS|ERFOLG)\]\s*', ''
         Add-ActivityItem -Message "✔ $msg" -Type "Success"
         $lblCurrentStep.Text = $msg
     } elseif ($cleanText -match '\[WARN\]|\[WARNUNG\]|Notice:|Warnung:') {
@@ -384,6 +397,7 @@ function Set-UIExecutionState {
     $btnDefaults.IsEnabled = (-not $Running)
     $btnHardening.IsEnabled = (-not $Running)
     $btnPrivacy.IsEnabled = (-not $Running)
+    if ($btnEnsureAdmin) { $btnEnsureAdmin.IsEnabled = (-not $Running) }
     $btnResetUser.IsEnabled = (-not $Running)
     $btnUpdateCheck.IsEnabled = (-not $Running)
     $btnOpenTui.IsEnabled = (-not $Running)
@@ -730,7 +744,7 @@ $xaml = @"
                 </StackPanel>
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock x:Name="lblVersionBadge" Text="Version 1.1.0" Foreground="#FEE4E2" FontSize="12" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <TextBlock x:Name="lblVersionBadge" Text="Version 1.1.1" Foreground="#FEE4E2" FontSize="12" VerticalAlignment="Center" Margin="0,0,12,0"/>
                     <Button x:Name="btnApplyUpdate" Content="⚡ Update verfügbar" Style="{StaticResource UtilityButton}" Visibility="Collapsed" Margin="0,0,8,0"/>
                     <Button x:Name="btnUpdateCheck" Content="Updates suchen" Style="{StaticResource UtilityButton}" Margin="0,0,8,0"/>
                     <Button x:Name="btnExitApp" Content="✕ Beenden" Style="{StaticResource UtilityButton}" FontWeight="Bold"/>
@@ -932,6 +946,7 @@ $btnQuickSync = $window.FindName("btnQuickSync")
 $btnDefaults = $window.FindName("btnDefaults")
 $btnHardening = $window.FindName("btnHardening")
 $btnPrivacy = $window.FindName("btnPrivacy")
+$btnEnsureAdmin = $window.FindName("btnEnsureAdmin")
 $btnResetUser = $window.FindName("btnResetUser")
 $btnOpenTui = $window.FindName("btnOpenTui")
 $btnOpenLogs = $window.FindName("btnOpenLogs")

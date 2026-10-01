@@ -92,7 +92,7 @@ def build():
         columns: (1fr, auto),
         align: (left, right),
         text(size: 8pt, fill: rgb("#64748B"), weight: "medium")[Caritas Steiermark · IT-Administration],
-        text(size: 8pt, fill: rgb("#C41230"), weight: "bold")[Caritas Laptop Management-Suite v1.1.0]
+        text(size: 8pt, fill: rgb("#C41230"), weight: "bold")[Caritas Laptop Management-Suite v1.1.1]
       )
       #v(-2pt)
       #line(length: 100%, stroke: 0.5pt + rgb("#E2E8F0"))
@@ -188,7 +188,7 @@ def build():
     #v(3pt)
     #text(fill: rgb("#FEE2E2"), size: 12pt, weight: "medium")[Installations- und Betriebshandbuch]\
     #v(2pt)
-    #text(fill: rgb("#FECACA"), size: 8.5pt)[Version 1.1.0 · Caritas Steiermark · Stand: Oktober 2026]
+    #text(fill: rgb("#FECACA"), size: 8.5pt)[Version 1.1.1 · Caritas Steiermark · Stand: Oktober 2026]
   ]
 ]
 

@@ -71,38 +71,36 @@
     - Recompiled publication-grade `HANDBUCH.pdf` via `setup/build-pdf.py` using Typst, achieving balanced 9-page layout without orphaned headings.
   - UTF-8 with BOM Enforcement:
     - Verified all `.ps1` script files are encoded as UTF-8 with BOM (`utf-8-sig`) to ensure full compatibility with Windows PowerShell 5.1 and eliminate mojibake.
+- GUI Button Resolution & Progress Feedback Fix (v1.1.1):
+  - In `scripts/Caritas-ControlCenter-GUI.ps1`, resolved missing XAML handle `$btnEnsureAdmin = $window.FindName("btnEnsureAdmin")` which previously caused the click event handler to fail silently.
+  - Included `$btnEnsureAdmin` in `Set-UIExecutionState` to disable the button during active operations.
+  - Enhanced `Process-ProgressLine` to strip secondary log level/category tags (`[INFO]`, `[ACTION]`, `[START]`, `[DONE]`, `[WARN]`, `[ERROR]`, `[DESKTOP-DEPLOY]`) and capture checkmark summary lines (`✓`, `✔`) so progress bar percentage and current step indicators update in real-time.
+  - Bumped version to 1.1.1 across `version.json`, `scripts/Caritas-ControlCenter-GUI.ps1`, `scripts/Caritas-ControlCenter.ps1`, `setup/build-pdf.py`, and recompiled `HANDBUCH.pdf`.
+  - Verified UTF-8 with BOM encoding across all `.ps1` files.
 
 ## 2. Active Intent & Delivered Artifacts
 All modules, launchers, and deployment artifacts are authored, validated, and verified:
-
 - **Administrator Account Protection & Recovery Module:**
   - Files: [`scripts/Ensure-CaritasAdminAccounts.ps1`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/scripts/Ensure-CaritasAdminAccounts.ps1), [`scripts/Deploy-CaritasAdminDesktop.ps1`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/scripts/Deploy-CaritasAdminDesktop.ps1).
   - Standalone scripts provisioning `CaritasAdmin`, activating the built-in `Administrator` with password `CariUntertasse-STMK-2025!`, staging the suite in `C:\ProgramData\CaritasScripts`, and deploying `CaritasScripts` and launchers directly to `CaritasAdmin`'s desktop.
-
 - **GUI and TUI Integration:**
   - Files: [`scripts/Caritas-ControlCenter-GUI.ps1`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/scripts/Caritas-ControlCenter-GUI.ps1), [`scripts/Caritas-ControlCenter.ps1`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/scripts/Caritas-ControlCenter.ps1).
-  - Dedicated UI card and action button `btnEnsureAdmin` in GUI; Option `[7]` in TUI; Phase 1 in Onboarding.
-
+  - Dedicated UI card and wired action button `btnEnsureAdmin` in GUI with full progress feedback; Option `[7]` in TUI; Phase 1 in Onboarding.
 - **Defensive Safeguards in Existing Pipelines:**
   - Files: [`scripts/Reset-CaritasUserProfile.ps1`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/scripts/Reset-CaritasUserProfile.ps1), [`setup/Install-CaritasEnvironment.ps1`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/setup/Install-CaritasEnvironment.ps1).
   - Pre-flight verification guaranteeing admin accounts exist before demoting or configuring autologon for `User`.
-
 - **Handbook Documentation:**
   - Files: [`HANDBUCH.md`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/HANDBUCH.md), [`HANDBUCH.pdf`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/HANDBUCH.pdf), and [`setup/build-pdf.py`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/setup/build-pdf.py).
   - Complete documentation of administrative credentials, 6-phase onboarding, and Section 9 emergency remediation procedures.
-
 - **Zero-Touch USB Response File:**
   - File: `setup/autounattend.xml`.
   - Fully unattended Windows 11 Pro installation with LabConfig bypass for donated hardware, GPT partitioning, Austrian locale, and `CaritasAdmin` user provisioning.
-
 - **Automated BIOS Hostname Assignment:**
   - Files: `setup/Install-CaritasEnvironment.ps1`, `scripts/Configure-CaritasHardening.ps1`.
   - Dynamic hardware query against pre-configured serial number lookup table; renames host automatically when serial matches.
-
 - **Microsoft Office 2024 LTSC Silent Activation:**
   - Files: `setup/Install-CaritasEnvironment.ps1`, `scripts/Sync-CaritasSoftware.ps1`, `scripts/Configure-CaritasDefaults.ps1`.
   - Silent detection and activation via `cscript.exe //Nologo ospp.vbs /inpkey:...` and `/act`.
-
 - **TeamViewer Unattended Support Baseline:**
   - Files: `setup/Install-CaritasEnvironment.ps1`, `scripts/Sync-CaritasSoftware.ps1`, `scripts/Configure-CaritasHardening.ps1`.
   - Pre-configures `Security_WinLogin = 2` (allowing remote login using `CaritasAdmin` credentials) and `Always_Online = 1`, and sets Windows service to Automatic.
@@ -123,5 +121,5 @@ All modules, launchers, and deployment artifacts are authored, validated, and ve
   - `Autounattend_Xml_Exists`: True (`8559` bytes)
 
 ## 4. Pending Decisions & Next Steps
-- Review git diff and commit changes.
-- Push updates to GitHub repository `Adrixan/CaritasLaptops-Management-Scripts`.
+- Release v1.1.1 published to GitHub.
+
