@@ -75,7 +75,7 @@ function Get-LocalVersion {
             if ($meta.version) { return $meta.version }
         } catch {}
     }
-    return "1.1.2"
+    return "1.1.3"
 }
 
 # Version comparison function (strictly checks if remote is newer)
@@ -744,7 +744,7 @@ $xaml = @"
                 </StackPanel>
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock x:Name="lblVersionBadge" Text="Version 1.1.2" Foreground="#FEE4E2" FontSize="12" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <TextBlock x:Name="lblVersionBadge" Text="Version 1.1.3" Foreground="#FEE4E2" FontSize="12" VerticalAlignment="Center" Margin="0,0,12,0"/>
                     <Button x:Name="btnApplyUpdate" Content="⚡ Update verfügbar" Style="{StaticResource UtilityButton}" Visibility="Collapsed" Margin="0,0,8,0"/>
                     <Button x:Name="btnUpdateCheck" Content="Updates suchen" Style="{StaticResource UtilityButton}" Margin="0,0,8,0"/>
                     <Button x:Name="btnExitApp" Content="✕ Beenden" Style="{StaticResource UtilityButton}" FontWeight="Bold"/>

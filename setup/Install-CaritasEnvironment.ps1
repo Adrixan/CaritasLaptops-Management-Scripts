@@ -188,21 +188,30 @@ try {
     if (Test-Path $ensureScript) {
         & "$ensureScript"
     } else {
-        $adminGroupName = (Get-LocalGroup -SID 'S-1-5-32-544').Name
+        $adminGroupName = (Get-LocalGroup -SID 'S-1-5-32-544' -ErrorAction SilentlyContinue).Name
+        if (-not $adminGroupName) { $adminGroupName = "Administratoren" }
         $secAdminPass = ConvertTo-SecureString "CariUntertasse-STMK-2025!" -AsPlainText -Force
         $cAdmin = Get-LocalUser -Name "CaritasAdmin" -ErrorAction SilentlyContinue
         if (-not $cAdmin) {
-            New-LocalUser -Name "CaritasAdmin" -Password $secAdminPass -FullName "Caritas Administrator" -Description "Lokales Haupt-Administrationskonto" -PasswordNeverExpires | Out-Null
+            try {
+                New-LocalUser -Name "CaritasAdmin" -Password $secAdminPass -FullName "Caritas Administrator" -Description "Lokales Haupt-Administrationskonto" -PasswordNeverExpires -ErrorAction Stop | Out-Null
+            } catch {
+                & net.exe user CaritasAdmin "CariUntertasse-STMK-2025!" /add /comment:"Lokales Haupt-Administrationskonto" /fullname:"Caritas Administrator" /active:yes 2>&1 | Out-Null
+            }
         } else {
             Set-LocalUser -Name "CaritasAdmin" -Password $secAdminPass -PasswordNeverExpires $true -ErrorAction SilentlyContinue | Out-Null
+            & net.exe user CaritasAdmin "CariUntertasse-STMK-2025!" /active:yes 2>&1 | Out-Null
         }
         Enable-LocalUser -Name "CaritasAdmin" -ErrorAction SilentlyContinue | Out-Null
-        Add-LocalGroupMember -Group $adminGroupName -Member "CaritasAdmin" -ErrorAction SilentlyContinue | Out-Null
+        try { Add-LocalGroupMember -Group $adminGroupName -Member "CaritasAdmin" -ErrorAction SilentlyContinue | Out-Null } catch {}
+        & net.exe localgroup "$adminGroupName" "CaritasAdmin" /add 2>&1 | Out-Null
 
         $bAdmin = Get-LocalUser -ErrorAction SilentlyContinue | Where-Object { $_.SID.Value -match '-500$' }
         if ($bAdmin) {
             Set-LocalUser -InputObject $bAdmin -Password $secAdminPass -PasswordNeverExpires $true -ErrorAction SilentlyContinue | Out-Null
             Enable-LocalUser -InputObject $bAdmin -ErrorAction SilentlyContinue | Out-Null
+        } else {
+            & net.exe user Administrator "CariUntertasse-STMK-2025!" /active:yes 2>&1 | Out-Null
         }
     }
     Write-Host "[+] Administrator-Konten (CaritasAdmin und Administrator) erfolgreich abgesichert." -ForegroundColor Green
@@ -245,7 +254,7 @@ Write-Host "[*] Richte Sitzungs-Zurücksetzung und Desktop-Verknüpfung für 'Us
 try {
     $stagedScripts = "C:\ProgramData\CaritasScripts\scripts"
     if (-not (Test-Path $stagedScripts)) { New-Item -ItemType Directory -Path $stagedScripts -Force | Out-Null }
-    foreach ($fn in @("Start-UserReset.cmd", "Reset-CaritasUserProfile.ps1", "Ensure-CaritasAdminAccounts.ps1")) {
+    foreach ($fn in @("Start-UserReset.cmd", "Reset-CaritasUserProfile.ps1", "Ensure-CaritasAdminAccounts.ps1", "Deploy-CaritasAdminDesktop.ps1")) {
         $srcCandidates = @(
             (Join-Path $baseDir "scripts\$fn"),
             (Join-Path $scriptDir "scripts\$fn"),

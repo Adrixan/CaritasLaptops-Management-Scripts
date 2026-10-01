@@ -74,7 +74,7 @@ function Get-LocalVersion {
             return $v.version
         } catch {}
     }
-    return "1.1.2"
+    return "1.1.3"
 }
 
 # 2. Fast-Fail Self-Update Check (2s Timeout)

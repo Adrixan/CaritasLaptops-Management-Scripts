@@ -397,7 +397,7 @@ if ($shouldConfigureTask) {
         if (-not (Test-Path $stagedScripts)) {
             New-Item -ItemType Directory -Path $stagedScripts -Force | Out-Null
         }
-        foreach ($fn in @("Start-UserReset.cmd", "Reset-CaritasUserProfile.ps1", "Ensure-CaritasAdminAccounts.ps1")) {
+        foreach ($fn in @("Start-UserReset.cmd", "Reset-CaritasUserProfile.ps1", "Ensure-CaritasAdminAccounts.ps1", "Deploy-CaritasAdminDesktop.ps1")) {
             $src = Join-Path $scriptDir $fn
             $dst = Join-Path $stagedScripts $fn
             if ((Test-Path $src) -and ($src -ne $dst)) {
