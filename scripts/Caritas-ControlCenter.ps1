@@ -16,7 +16,8 @@
 [CmdletBinding()]
 param(
     [switch]$CheckUpdateOnly,
-    [switch]$RunOnboardingUnattended
+    [switch]$RunOnboardingUnattended,
+    [string]$OfficeProductKey = ""
 )
 
 # Enforce UTF-8 console and pipeline encoding
@@ -27,7 +28,11 @@ $OutputEncoding = [System.Text.Encoding]::UTF8
 $currentIdentity = [Security.Principal.WindowsIdentity]::GetCurrent()
 $currentPrincipal = New-Object Security.Principal.WindowsPrincipal($currentIdentity)
 if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Start-Process powershell.exe -Verb RunAs -ArgumentList @('-NoExit', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $PSCommandPath)
+    $elevateArgs = @('-NoExit', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $PSCommandPath)
+    if ($CheckUpdateOnly) { $elevateArgs += '-CheckUpdateOnly' }
+    if ($RunOnboardingUnattended) { $elevateArgs += '-RunOnboardingUnattended' }
+    if ($OfficeProductKey) { $elevateArgs += @('-OfficeProductKey', $OfficeProductKey) }
+    Start-Process powershell.exe -Verb RunAs -ArgumentList $elevateArgs
     exit
 }
 
@@ -74,7 +79,7 @@ function Get-LocalVersion {
             return $v.version
         } catch {}
     }
-    return "1.1.4"
+    return "1.1.5"
 }
 
 # 2. Fast-Fail Self-Update Check (2s Timeout)
@@ -202,12 +207,17 @@ function Invoke-MasterOnboarding {
     Write-Host "==============================================================" -ForegroundColor Cyan
     Write-Host ""
 
+    $activeOfficeKey = $OfficeProductKey
     if (-not $Unattended) {
         $confirm = Read-Host "Möchten Sie die Erst-Einrichtung jetzt starten? (J/N)"
         if ($confirm -ne "J" -and $confirm -ne "j" -and $confirm -ne "Y" -and $confirm -ne "y") {
             Write-Host "Abgebrochen." -ForegroundColor Gray
             Start-Sleep -Seconds 1
             return
+        }
+        $officeInput = Read-Host "Optional: Microsoft Office Lizenzschlüssel eingeben (Enter zum Überspringen)"
+        if ($officeInput -and $officeInput.Trim()) {
+            $activeOfficeKey = ($officeInput -replace '[\s-]', '').Trim().ToUpper()
         }
     }
 
@@ -218,13 +228,13 @@ function Invoke-MasterOnboarding {
     & "$scriptDir\Ensure-CaritasAdminAccounts.ps1"
 
     Write-Host "`n[Schritt 2/6] Synchronisiere Software & installiere Updates..." -ForegroundColor Yellow
-    & "$scriptDir\Sync-CaritasSoftware.ps1"
+    & "$scriptDir\Sync-CaritasSoftware.ps1" -OfficeProductKey $activeOfficeKey
 
     Write-Host "`n[Schritt 3/6] Wende System-Hardening & Energie-Richtlinien an..." -ForegroundColor Yellow
     & "$scriptDir\Configure-CaritasHardening.ps1"
 
     Write-Host "`n[Schritt 4/6] Richte Standard-Programme & Werbeblocker ein..." -ForegroundColor Yellow
-    & "$scriptDir\Configure-CaritasDefaults.ps1"
+    & "$scriptDir\Configure-CaritasDefaults.ps1" -OfficeProductKey $activeOfficeKey
 
     Write-Host "`n[Schritt 5/6] Richte Datenschutz, USB-Sperre & Speicher-Wartung ein..." -ForegroundColor Yellow
     & "$scriptDir\Configure-CaritasMaintenanceAndPrivacy.ps1"
@@ -306,13 +316,14 @@ while ($true) {
     Write-Host "  [6] Wartungs-, Datenschutz- & USB-Sperre (Passwörter, USB-Hygiene)"
     Write-Host "  [7] Administrator-Konten sicherstellen (CaritasAdmin & Administrator)" -ForegroundColor Cyan
     Write-Host "  [8] Benutzerkonto 'User' komplett zurücksetzen (Clean Slate)" -ForegroundColor Yellow
+    Write-Host "  [O] Microsoft Office aktivieren (Produktschlüssel manuell eingeben)" -ForegroundColor Cyan
     Write-Host "  [9] Grafische Benutzeroberfläche (GUI) öffnen"
     Write-Host "  [U] Nach Skript-Updates suchen"
     Write-Host "  [L] Audit-Logs anzeigen"
     Write-Host "  [0] Beenden"
     Write-Host ""
     Write-Host "==============================================================" -ForegroundColor Cyan
-    $selection = Read-Host "Bitte wählen Sie eine Option [0-9, U, L]"
+    $selection = Read-Host "Bitte wählen Sie eine Option [0-9, O, U, L]"
 
     switch ($selection.ToUpper()) {
         "1" { Invoke-MasterOnboarding }
@@ -357,6 +368,26 @@ while ($true) {
             Write-Host "Setze Benutzerkonto 'User' auf den Ausgangszustand zurück..." -ForegroundColor Yellow
             & "$scriptDir\Reset-CaritasUserProfile.ps1" -TargetUsername "User"
             Read-Host "`nBenutzer zurückgesetzt. Eingabetaste zum Fortfahren..."
+        }
+        "O" {
+            Clear-Host
+            Write-Host "==============================================================" -ForegroundColor Cyan
+            Write-Host "             MICROSOFT OFFICE 2024 AKTIVIERUNG                " -ForegroundColor Yellow
+            Write-Host "==============================================================" -ForegroundColor Cyan
+            $activateScript = "$scriptDir\Activate-CaritasOffice.ps1"
+            if (Test-Path $activateScript) {
+                & "$activateScript" -CheckOnly
+                Write-Host ""
+                $inputKey = Read-Host "Bitte MAK-Volumenlizenzschlüssel eingeben (oder Enter zum Abbrechen)"
+                if ($inputKey -and $inputKey.Trim()) {
+                    & "$activateScript" -OfficeProductKey $inputKey.Trim()
+                } else {
+                    Write-Host "Keine Eingabe vorgenommen. Vorgang beendet." -ForegroundColor Gray
+                }
+            } else {
+                Write-Host "Aktivierungsskript nicht gefunden: $activateScript" -ForegroundColor Red
+            }
+            Read-Host "`nEingabetaste zum Fortfahren..."
         }
         "9" {
             $guiScript = "$scriptDir\Caritas-ControlCenter-GUI.ps1"

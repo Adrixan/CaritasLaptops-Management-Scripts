@@ -29,7 +29,8 @@
 param(
     [switch]$DryRun,
     [switch]$SkipAssociations,
-    [switch]$SkipExtensions
+    [switch]$SkipExtensions,
+    [string]$OfficeProductKey = ""
 )
 
 $ErrorActionPreference = "Continue"
@@ -146,28 +147,45 @@ if (-not $SkipAssociations) {
     Add-Assoc ".ppsx" "PowerPoint.SlideShow.12" "Microsoft PowerPoint"
 
     # Verify and activate Microsoft Office 2024 LTSC volume license if present
-    $osppCandidates = @(
-        "$env:ProgramFiles\Microsoft Office\Office16\ospp.vbs",
-        "${env:ProgramFiles(x86)}\Microsoft Office\Office16\ospp.vbs"
-    )
-    $ospp = $osppCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
-    if ($ospp) {
-        try {
-            $statusOut = & cscript.exe //Nologo "$ospp" /dstatus 2>&1 | Out-String
-            if ($statusOut -match "---LICENSED---") {
-                Write-DefaultsLog "  [OK] Microsoft Office is licensed and activated." "INFO" ([ConsoleColor]::Green)
-            } else {
-                if (-not $DryRun) {
-                    $officeKey = "[MANUELL-ZU-HINTERLEGEN]"
-                    & cscript.exe //Nologo "$ospp" /inpkey:$officeKey 2>&1 | Out-Null
-                    & cscript.exe //Nologo "$ospp" /act 2>&1 | Out-Null
-                    Write-DefaultsLog "  [APPLIED] Microsoft Office activated with volume license key." "ACTION" ([ConsoleColor]::Yellow)
+    $activateScript = Join-Path $scriptDir "Activate-CaritasOffice.ps1"
+    if (Test-Path $activateScript) {
+        if ($DryRun) {
+            & "$activateScript" -CheckOnly | ForEach-Object { Write-DefaultsLog "  $_" "INFO" ([ConsoleColor]::Gray) }
+        } else {
+            & "$activateScript" -OfficeProductKey $OfficeProductKey | ForEach-Object { Write-DefaultsLog "  $_" "INFO" ([ConsoleColor]::Cyan) }
+        }
+    } else {
+        $osppCandidates = @(
+            "$env:ProgramFiles\Microsoft Office\Office16\ospp.vbs",
+            "${env:ProgramFiles(x86)}\Microsoft Office\Office16\ospp.vbs"
+        )
+        $ospp = $osppCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+        if ($ospp) {
+            try {
+                $statusOut = & cscript.exe //Nologo "$ospp" /dstatus 2>&1 | Out-String
+                if ($statusOut -match "---LICENSED---") {
+                    Write-DefaultsLog "  [OK] Microsoft Office is licensed and activated." "INFO" ([ConsoleColor]::Green)
+                } elseif ($OfficeProductKey -and $OfficeProductKey.Trim()) {
+                    if (-not $DryRun) {
+                        $cleanKey = ($OfficeProductKey -replace '[\s-]', '').Trim().ToUpper()
+                        $formattedKey = ($cleanKey -replace '(.{5})(?!$)', '$1-')
+                        & cscript.exe //Nologo "$ospp" "/inpkey:$formattedKey" 2>&1 | Out-Null
+                        & cscript.exe //Nologo "$ospp" /act 2>&1 | Out-Null
+                        $newStatus = & cscript.exe //Nologo "$ospp" /dstatus 2>&1 | Out-String
+                        if ($newStatus -match "---LICENSED---") {
+                            Write-DefaultsLog "  [APPLIED] Microsoft Office activated with provided license key." "ACTION" ([ConsoleColor]::Green)
+                        } else {
+                            Write-DefaultsLog "  [WARN] Office activation could not be confirmed immediately." "WARN" ([ConsoleColor]::Yellow)
+                        }
+                    } else {
+                        Write-DefaultsLog "  [DryRun] Would activate Microsoft Office using provided license key." "INFO" ([ConsoleColor]::Gray)
+                    }
                 } else {
-                    Write-DefaultsLog "  [DryRun] Would activate Microsoft Office using volume license key." "INFO" ([ConsoleColor]::Gray)
+                    Write-DefaultsLog "  [INFO] Microsoft Office is not yet activated. No product key provided." "INFO" ([ConsoleColor]::Gray)
                 }
+            } catch {
+                Write-DefaultsLog "  Notice: Office license query: $_" "WARN" ([ConsoleColor]::DarkGray)
             }
-        } catch {
-            Write-DefaultsLog "  Notice: Office license query: $_" "WARN" ([ConsoleColor]::DarkGray)
         }
     }
 

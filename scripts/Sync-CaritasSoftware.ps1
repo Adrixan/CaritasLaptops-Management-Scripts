@@ -16,7 +16,8 @@
 param(
     [switch]$SkipUpgrade,
     [switch]$SkipWindowsUpdate,
-    [switch]$DryRun
+    [switch]$DryRun,
+    [string]$OfficeProductKey = ""
 )
 
 $ErrorActionPreference = "Continue"
@@ -407,33 +408,45 @@ if (-not $SkipUpgrade) {
     }
 
     # Verify and apply Microsoft Office 2024 LTSC volume license activation if installed
-    $osppCandidates = @(
-        "$env:ProgramFiles\Microsoft Office\Office16\ospp.vbs",
-        "${env:ProgramFiles(x86)}\Microsoft Office\Office16\ospp.vbs"
-    )
-    $ospp = $osppCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
-    if ($ospp) {
+    $activateScript = Join-Path $scriptDir "Activate-CaritasOffice.ps1"
+    if (Test-Path $activateScript) {
         Write-SyncLog "Checking Microsoft Office 2024 LTSC license status..." "INFO" ([ConsoleColor]::Cyan)
-        try {
-            $statusOut = & cscript.exe //Nologo "$ospp" /dstatus 2>&1 | Out-String
-            if ($statusOut -match "---LICENSED---") {
-                Write-SyncLog "  [OK] Microsoft Office is licensed and activated." "INFO" ([ConsoleColor]::Green)
-            } else {
-                Write-SyncLog "  Office is not fully activated. Applying MAK key and triggering activation..." "ACTION" ([ConsoleColor]::Yellow)
-                if (-not $DryRun) {
-                    $officeKey = "[MANUELL-ZU-HINTERLEGEN]"
-                    & cscript.exe //Nologo "$ospp" /inpkey:$officeKey 2>&1 | Out-Null
-                    & cscript.exe //Nologo "$ospp" /act 2>&1 | Out-Null
-                    $newStatus = & cscript.exe //Nologo "$ospp" /dstatus 2>&1 | Out-String
-                    if ($newStatus -match "---LICENSED---") {
-                        Write-SyncLog "  [OK] Microsoft Office activated successfully (Key: [KEY])." "SUCCESS" ([ConsoleColor]::Green)
-                    } else {
-                        Write-SyncLog "  [WARN] Office activation could not be confirmed immediately." "WARN" ([ConsoleColor]::Yellow)
+        if ($DryRun) {
+            & "$activateScript" -CheckOnly | ForEach-Object { Write-SyncLog "  $_" "INFO" ([ConsoleColor]::Gray) }
+        } else {
+            & "$activateScript" -OfficeProductKey $OfficeProductKey | ForEach-Object { Write-SyncLog "  $_" "INFO" ([ConsoleColor]::Cyan) }
+        }
+    } else {
+        $osppCandidates = @(
+            "$env:ProgramFiles\Microsoft Office\Office16\ospp.vbs",
+            "${env:ProgramFiles(x86)}\Microsoft Office\Office16\ospp.vbs"
+        )
+        $ospp = $osppCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+        if ($ospp) {
+            Write-SyncLog "Checking Microsoft Office 2024 LTSC license status..." "INFO" ([ConsoleColor]::Cyan)
+            try {
+                $statusOut = & cscript.exe //Nologo "$ospp" /dstatus 2>&1 | Out-String
+                if ($statusOut -match "---LICENSED---") {
+                    Write-SyncLog "  [OK] Microsoft Office is licensed and activated." "INFO" ([ConsoleColor]::Green)
+                } elseif ($OfficeProductKey -and $OfficeProductKey.Trim()) {
+                    if (-not $DryRun) {
+                        $cleanKey = ($OfficeProductKey -replace '[\s-]', '').Trim().ToUpper()
+                        $formattedKey = ($cleanKey -replace '(.{5})(?!$)', '$1-')
+                        & cscript.exe //Nologo "$ospp" "/inpkey:$formattedKey" 2>&1 | Out-Null
+                        & cscript.exe //Nologo "$ospp" /act 2>&1 | Out-Null
+                        $newStatus = & cscript.exe //Nologo "$ospp" /dstatus 2>&1 | Out-String
+                        if ($newStatus -match "---LICENSED---") {
+                            Write-SyncLog "  [OK] Microsoft Office activated successfully." "SUCCESS" ([ConsoleColor]::Green)
+                        } else {
+                            Write-SyncLog "  [WARN] Office activation could not be confirmed immediately." "WARN" ([ConsoleColor]::Yellow)
+                        }
                     }
+                } else {
+                    Write-SyncLog "  Notice: Microsoft Office is not yet activated. No product key provided." "INFO" ([ConsoleColor]::Gray)
                 }
+            } catch {
+                Write-SyncLog "  Notice: Error querying Office license status: $_" "WARN" ([ConsoleColor]::DarkGray)
             }
-        } catch {
-            Write-SyncLog "  Notice: Error querying Office license status: $_" "WARN" ([ConsoleColor]::DarkGray)
         }
     }
 } else {

@@ -396,6 +396,7 @@ try {
         "NXEG9EV00105209CB17600" = "Caritas-Acer-2"
         "NXEG9EV00105209CB47600" = "Caritas-Acer-3"
         "NXEG9EV00105209CBB7600" = "Caritas-Acer-4"
+        "NXEG9EV00105209C987600" = "Caritas-Acer-5"
         "5CG6388SJG"             = "Caritas-HP-1"
         "5CG6502VZQ"             = "Caritas-HP-2"
     }

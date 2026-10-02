@@ -39,7 +39,7 @@
   - Guaranteed `reference/` is ignored by version control in `.gitignore`.
   - Authored comprehensive modern manual `HANDBUCH.md` detailing hardware serial table, credentials, BIOS hotkeys, clean OS installation, 1-click suite onboarding, Office activation, TeamViewer, session resets, and in-place updates.
   - Implemented Candidate 1 (Automated BIOS Hostname Mapping): Hardware serial number lookup (`Win32_BIOS.SerialNumber`) mapped to laptop hostnames (`Caritas-T480-1`, `Caritas-X1-1`, `Caritas-Acer-1..4`, `Caritas-HP-1..2`) with automatic renaming via `Rename-Computer` in `setup/Install-CaritasEnvironment.ps1` and `scripts/Configure-CaritasHardening.ps1`.
-  - Implemented Candidate 2 (Microsoft Office Silent Activation): Automated detection via `ospp.vbs` and activation using MAK key `[MANUELL-ZU-HINTERLEGEN]` in `setup/Install-CaritasEnvironment.ps1`, `scripts/Sync-CaritasSoftware.ps1`, and `scripts/Configure-CaritasDefaults.ps1`.
+  - Implemented Candidate 2 (Microsoft Office Activation): Automated detection via `ospp.vbs` and volume license activation support in `setup/Install-CaritasEnvironment.ps1`, `scripts/Sync-CaritasSoftware.ps1`, and `scripts/Configure-CaritasDefaults.ps1`.
   - Implemented Candidate 3 (TeamViewer Unattended Remote Support): Pre-configured registry keys `Security_WinLogin = 2` (Windows authentication for all users) and `Always_Online = 1` with automatic service startup in `setup/Install-CaritasEnvironment.ps1`, `scripts/Sync-CaritasSoftware.ps1`, and `scripts/Configure-CaritasHardening.ps1`.
   - Implemented Candidate 4 (Zero-Touch USB Response File): Created `setup/autounattend.xml` bypassing Windows 11 hardware checks (TPM, CPU, RAM), formatting UEFI/GPT disks, setting `de-AT` locale, creating `CaritasAdmin`, bypassing OOBE privacy screens, and automatically launching into the administrator desktop.
   - Authored Publication-Quality PDF Edition (`HANDBUCH.pdf`):
@@ -123,7 +123,7 @@ All modules, launchers, and deployment artifacts are authored, validated, and ve
   - `OS_ComputerName`: `CARITAS-X1-1`
   - `Expected_Hostname`: `Caritas-X1-1` (Match: True)
   - `Office_OSPP_Path`: `C:\Program Files\Microsoft Office\Office16\ospp.vbs`
-  - `Office_Is_Licensed`: True (`---LICENSED---`, MAK key ending `[KEY]`)
+  - `Office_Is_Licensed`: True (`---LICENSED---`)
   - `TeamViewer_Service_Status`: Running (StartType: Automatic)
   - `TeamViewer_Security_WinLogin`: 2 (Windows Authentication for all users)
   - `TeamViewer_Always_Online`: 1

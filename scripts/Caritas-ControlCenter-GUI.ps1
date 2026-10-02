@@ -75,7 +75,7 @@ function Get-LocalVersion {
             if ($meta.version) { return $meta.version }
         } catch {}
     }
-    return "1.1.4"
+    return "1.1.5"
 }
 
 # Version comparison function (strictly checks if remote is newer)
@@ -398,6 +398,8 @@ function Set-UIExecutionState {
     $btnHardening.IsEnabled = (-not $Running)
     $btnPrivacy.IsEnabled = (-not $Running)
     if ($btnEnsureAdmin) { $btnEnsureAdmin.IsEnabled = (-not $Running) }
+    if ($btnActivateOffice) { $btnActivateOffice.IsEnabled = (-not $Running) }
+    if ($txtOfficeKey) { $txtOfficeKey.IsEnabled = (-not $Running) }
     $btnResetUser.IsEnabled = (-not $Running)
     $btnUpdateCheck.IsEnabled = (-not $Running)
     $btnOpenTui.IsEnabled = (-not $Running)
@@ -744,7 +746,7 @@ $xaml = @"
                 </StackPanel>
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock x:Name="lblVersionBadge" Text="Version 1.1.4" Foreground="#FEE4E2" FontSize="12" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <TextBlock x:Name="lblVersionBadge" Text="Version 1.1.5" Foreground="#FEE4E2" FontSize="12" VerticalAlignment="Center" Margin="0,0,12,0"/>
                     <Button x:Name="btnApplyUpdate" Content="⚡ Update verfügbar" Style="{StaticResource UtilityButton}" Visibility="Collapsed" Margin="0,0,8,0"/>
                     <Button x:Name="btnUpdateCheck" Content="Updates suchen" Style="{StaticResource UtilityButton}" Margin="0,0,8,0"/>
                     <Button x:Name="btnExitApp" Content="✕ Beenden" Style="{StaticResource UtilityButton}" FontWeight="Bold"/>
@@ -808,6 +810,24 @@ $xaml = @"
                             <TextBlock Text="ADMINISTRATOR-ZUGANG ABSICHERN" Foreground="#1D2939" FontWeight="Bold" FontSize="13"/>
                             <TextBlock Text="Stellt sicher, dass das lokale Administratorkonto 'CaritasAdmin' existiert und das integrierte Konto 'Administrator' aktiv ist (beide mit Standard-Kennwort):" Foreground="#475467" FontSize="11" Margin="0,2,0,8" TextWrapping="Wrap"/>
                             <Button x:Name="btnEnsureAdmin" Content="🛡 Administrator-Konten sicherstellen" Style="{StaticResource ActionButton}" ToolTip="Legt CaritasAdmin an, aktiviert den integrierten Administrator und synchronisiert das Standard-Kennwort"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- MICROSOFT OFFICE LIZENZIERUNG -->
+                    <Border Style="{StaticResource CardPanel}">
+                        <StackPanel Orientation="Vertical">
+                            <TextBlock Text="MICROSOFT OFFICE AKTIVIERUNG" Foreground="#1D2939" FontWeight="Bold" FontSize="13"/>
+                            <TextBlock Text="MAK-Volumenlizenzschlüssel manuell eingeben (25 Zeichen):" Foreground="#475467" FontSize="11" Margin="0,2,0,6" TextWrapping="Wrap"/>
+                            <Grid Margin="0,0,0,6">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="8"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="txtOfficeKey" Grid.Column="0" Height="28" VerticalContentAlignment="Center" Padding="6,2" FontSize="11.5" FontFamily="Consolas, monospace" CharacterCasing="Upper"/>
+                                <Button x:Name="btnActivateOffice" Grid.Column="2" Content="Aktivieren" Style="{StaticResource ActionButton}" Padding="12,4" ToolTip="Hinterlegt den Schlüssel und aktiviert Microsoft Office online"/>
+                            </Grid>
+                            <TextBlock Text="Wird auch automatisch an Erst-Einrichtung und Software-Wartung übergeben." Foreground="#667085" FontSize="10.5" TextWrapping="Wrap"/>
                         </StackPanel>
                     </Border>
 
@@ -947,6 +967,8 @@ $btnDefaults = $window.FindName("btnDefaults")
 $btnHardening = $window.FindName("btnHardening")
 $btnPrivacy = $window.FindName("btnPrivacy")
 $btnEnsureAdmin = $window.FindName("btnEnsureAdmin")
+$txtOfficeKey = $window.FindName("txtOfficeKey")
+$btnActivateOffice = $window.FindName("btnActivateOffice")
 $btnResetUser = $window.FindName("btnResetUser")
 $btnOpenTui = $window.FindName("btnOpenTui")
 $btnOpenLogs = $window.FindName("btnOpenLogs")
@@ -983,12 +1005,24 @@ $btnOnboarding.Add_Click({
         [System.Windows.MessageBoxImage]::Question
     )
     if ($confirm -eq [System.Windows.MessageBoxResult]::Yes) {
-        Start-AsyncScript -ScriptFile "$scriptDir\Caritas-ControlCenter.ps1" -Arguments "-RunOnboardingUnattended" -TaskName "Erst-Einrichtung (All-in-One)" -TargetLog "$logDir\SoftwareSync.log"
+        $officeArg = ""
+        $key = if ($txtOfficeKey) { $txtOfficeKey.Text.Trim() } else { "" }
+        if ($key) {
+            $cleanKey = ($key -replace '[\s-]', '').ToUpper()
+            $officeArg = " -OfficeProductKey `"$cleanKey`""
+        }
+        Start-AsyncScript -ScriptFile "$scriptDir\Caritas-ControlCenter.ps1" -Arguments "-RunOnboardingUnattended$officeArg" -TaskName "Erst-Einrichtung (All-in-One)" -TargetLog "$logDir\SoftwareSync.log"
     }
 })
 
 $btnFullSync.Add_Click({
-    Start-AsyncScript -ScriptFile "$scriptDir\Sync-CaritasSoftware.ps1" -Arguments "" -TaskName "Vollständige Wartung (Software & Windows Update)" -TargetLog "$logDir\SoftwareSync.log"
+    $officeArg = ""
+    $key = if ($txtOfficeKey) { $txtOfficeKey.Text.Trim() } else { "" }
+    if ($key) {
+        $cleanKey = ($key -replace '[\s-]', '').ToUpper()
+        $officeArg = "-OfficeProductKey `"$cleanKey`""
+    }
+    Start-AsyncScript -ScriptFile "$scriptDir\Sync-CaritasSoftware.ps1" -Arguments "$officeArg" -TaskName "Vollständige Wartung (Software & Windows Update)" -TargetLog "$logDir\SoftwareSync.log"
 })
 
 $btnQuickSync.Add_Click({
@@ -996,7 +1030,13 @@ $btnQuickSync.Add_Click({
 })
 
 $btnDefaults.Add_Click({
-    Start-AsyncScript -ScriptFile "$scriptDir\Configure-CaritasDefaults.ps1" -Arguments "" -TaskName "Standard-Programme, uBlock & Autologon" -TargetLog "$logDir\Defaults.log"
+    $officeArg = ""
+    $key = if ($txtOfficeKey) { $txtOfficeKey.Text.Trim() } else { "" }
+    if ($key) {
+        $cleanKey = ($key -replace '[\s-]', '').ToUpper()
+        $officeArg = "-OfficeProductKey `"$cleanKey`""
+    }
+    Start-AsyncScript -ScriptFile "$scriptDir\Configure-CaritasDefaults.ps1" -Arguments "$officeArg" -TaskName "Standard-Programme, uBlock & Autologon" -TargetLog "$logDir\Defaults.log"
 })
 
 $btnHardening.Add_Click({
@@ -1010,6 +1050,18 @@ $btnPrivacy.Add_Click({
 $btnEnsureAdmin.Add_Click({
     Start-AsyncScript -ScriptFile "$scriptDir\Ensure-CaritasAdminAccounts.ps1" -Arguments "" -TaskName "Administrator-Konten absichern" -TargetLog "$logDir\AdminAccounts.log"
 })
+
+if ($btnActivateOffice) {
+    $btnActivateOffice.Add_Click({
+        $key = if ($txtOfficeKey) { $txtOfficeKey.Text.Trim() } else { "" }
+        $cleanKey = ($key -replace '[\s-]', '').ToUpper()
+        if ($cleanKey) {
+            Start-AsyncScript -ScriptFile "$scriptDir\Activate-CaritasOffice.ps1" -Arguments "-OfficeProductKey `"$cleanKey`"" -TaskName "Microsoft Office aktivieren" -TargetLog "$logDir\OfficeActivation.log"
+        } else {
+            Start-AsyncScript -ScriptFile "$scriptDir\Activate-CaritasOffice.ps1" -Arguments "" -TaskName "Microsoft Office Status prüfen" -TargetLog "$logDir\OfficeActivation.log"
+        }
+    })
+}
 
 $btnResetUser.Add_Click({
     $confirm = [System.Windows.MessageBox]::Show(

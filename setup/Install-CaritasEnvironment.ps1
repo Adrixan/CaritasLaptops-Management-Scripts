@@ -12,7 +12,8 @@
 [CmdletBinding()]
 param(
     [switch]$LaunchControlCenter,
-    [switch]$TerminalOnly
+    [switch]$TerminalOnly,
+    [string]$OfficeProductKey = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -26,7 +27,11 @@ $currentIdentity = [Security.Principal.WindowsIdentity]::GetCurrent()
 $currentPrincipal = New-Object Security.Principal.WindowsPrincipal($currentIdentity)
 if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     Write-Host "UAC-Erhöhung erforderlich. Starte PowerShell als Administrator..." -ForegroundColor Yellow
-    Start-Process powershell.exe -Verb RunAs -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $PSCommandPath)
+    $elevateArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $PSCommandPath)
+    if ($LaunchControlCenter) { $elevateArgs += '-LaunchControlCenter' }
+    if ($TerminalOnly) { $elevateArgs += '-TerminalOnly' }
+    if ($OfficeProductKey) { $elevateArgs += @('-OfficeProductKey', $OfficeProductKey) }
+    Start-Process powershell.exe -Verb RunAs -ArgumentList $elevateArgs
     exit
 }
 
@@ -386,6 +391,7 @@ try {
         "NXEG9EV00105209CB17600" = "Caritas-Acer-2"
         "NXEG9EV00105209CB47600" = "Caritas-Acer-3"
         "NXEG9EV00105209CBB7600" = "Caritas-Acer-4"
+        "NXEG9EV00105209C987600" = "Caritas-Acer-5"
         "5CG6388SJG"             = "Caritas-HP-1"
         "5CG6502VZQ"             = "Caritas-HP-2"
     }
@@ -408,34 +414,41 @@ try {
     Write-Host "[-] Fehler bei der BIOS-Hostnamen-Zuweisung: $_" -ForegroundColor Yellow
 }
 
-# 10. Microsoft Office 2024 LTSC Silent Activation
+# 10. Microsoft Office 2024 LTSC Activation
 Write-Host "[*] Prüfe Microsoft Office 2024 LTSC Aktivierungsstatus..." -ForegroundColor Cyan
 try {
-    $officeKey = "[MANUELL-ZU-HINTERLEGEN]"
-    $osppCandidates = @(
-        "$env:ProgramFiles\Microsoft Office\Office16\ospp.vbs",
-        "${env:ProgramFiles(x86)}\Microsoft Office\Office16\ospp.vbs"
-    )
-    $ospp = $osppCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
-
-    if ($ospp) {
-        $dstatus = & cscript.exe //Nologo "$ospp" /dstatus 2>&1 | Out-String
-        if ($dstatus -match "---LICENSED---") {
-            Write-Host "[OK] Microsoft Office ist bereits lizenziert und aktiviert." -ForegroundColor Green
-        } else {
-            Write-Host "[*] Installiere Volumenlizenzschlüssel für Office..." -ForegroundColor Yellow
-            & cscript.exe //Nologo "$ospp" /inpkey:$officeKey 2>&1 | Out-Null
-            Write-Host "[*] Aktiviere Office online..." -ForegroundColor Yellow
-            & cscript.exe //Nologo "$ospp" /act 2>&1 | Out-Null
-            $afterStatus = & cscript.exe //Nologo "$ospp" /dstatus 2>&1 | Out-String
-            if ($afterStatus -match "---LICENSED---") {
-                Write-Host "[+] Microsoft Office erfolgreich aktiviert (MAK-Schlüssel [KEY])." -ForegroundColor Green
-            } else {
-                Write-Host "[-] Office-Aktivierung konnte nicht unmittelbar bestätigt werden." -ForegroundColor Yellow
-            }
-        }
+    $activateScript = Join-Path $baseDir "scripts\Activate-CaritasOffice.ps1"
+    if (Test-Path $activateScript) {
+        & "$activateScript" -OfficeProductKey $OfficeProductKey
     } else {
-        Write-Host "[*] Microsoft Office 16/2024 nicht installiert (ospp.vbs nicht vorhanden)." -ForegroundColor Gray
+        $osppCandidates = @(
+            "$env:ProgramFiles\Microsoft Office\Office16\ospp.vbs",
+            "${env:ProgramFiles(x86)}\Microsoft Office\Office16\ospp.vbs"
+        )
+        $ospp = $osppCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+        if ($ospp) {
+            $dstatus = & cscript.exe //Nologo "$ospp" /dstatus 2>&1 | Out-String
+            if ($dstatus -match "---LICENSED---") {
+                Write-Host "[OK] Microsoft Office ist bereits lizenziert und aktiviert." -ForegroundColor Green
+            } elseif ($OfficeProductKey -and $OfficeProductKey.Trim()) {
+                $cleanKey = ($OfficeProductKey -replace '[\s-]', '').Trim().ToUpper()
+                $formattedKey = ($cleanKey -replace '(.{5})(?!$)', '$1-')
+                Write-Host "[*] Installiere angegebenen Lizenzschlüssel..." -ForegroundColor Yellow
+                & cscript.exe //Nologo "$ospp" "/inpkey:$formattedKey" 2>&1 | Out-Null
+                Write-Host "[*] Aktiviere Office online..." -ForegroundColor Yellow
+                & cscript.exe //Nologo "$ospp" /act 2>&1 | Out-Null
+                $afterStatus = & cscript.exe //Nologo "$ospp" /dstatus 2>&1 | Out-String
+                if ($afterStatus -match "---LICENSED---") {
+                    Write-Host "[+] Microsoft Office erfolgreich aktiviert." -ForegroundColor Green
+                } else {
+                    Write-Host "[-] Office-Aktivierung konnte nicht unmittelbar bestätigt werden." -ForegroundColor Yellow
+                }
+            } else {
+                Write-Host "[*] Microsoft Office ist noch nicht aktiviert. Produktschlüssel kann im Kontrollzentrum eingegeben werden." -ForegroundColor Yellow
+            }
+        } else {
+            Write-Host "[*] Microsoft Office 16/2024 nicht installiert (ospp.vbs nicht vorhanden)." -ForegroundColor Gray
+        }
     }
 } catch {
     Write-Host "[-] Fehler bei der Office-Aktivierung: $_" -ForegroundColor Yellow

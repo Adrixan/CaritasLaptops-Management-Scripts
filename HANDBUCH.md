@@ -16,7 +16,7 @@ Die folgenden Zugangsdaten gelten standardisiert für alle Laptops der Organisat
 | BIOS / UEFI | Administrator | `WirHelfen2025!` bzw. `WirHelfen2025` | Hardwareschutz und Boot-Sperre |
 | Microsoft-Konto (Fallback) | `caritas-laptops@outlook.com` | `CariUntertasse-STMK-2025!` | Bei Bedarf für OOBE-Ersteinrichtung |
 | Alternative Notfall-Mail | `julia.bretterklieber@caritas-steiermark.at` | s. o. | Sicherheitskontakt des Microsoft-Kontos |
-| MS Office 2024 Lizenz | Alle Geräte | `[MANUELL-ZU-HINTERLEGEN]` | Volumenlizenzierung für Word, Excel, PowerPoint |
+| MS Office 2024 Lizenz | Alle Geräte | Manuelle Eingabe im Kontrollzentrum | Volumenlizenzierung für Word, Excel, PowerPoint |
 
 ---
 
@@ -31,6 +31,7 @@ Jedem Gerät ist anhand seiner eindeutigen Hardware-Seriennummer (im BIOS oder a
 | `NXEG9EV00105209CB17600` | Acer TravelMate / Aspire | `Caritas-Acer-2` | F2 | F12 |
 | `NXEG9EV00105209CB47600` | Acer TravelMate / Aspire | `Caritas-Acer-3` | F2 | F12 |
 | `NXEG9EV00105209CBB7600` | Acer TravelMate / Aspire | `Caritas-Acer-4` | F2 | F12 |
+| `NXEG9EV00105209C987600` | Acer TravelMate / Aspire | `Caritas-Acer-5` | F2 | F12 |
 | `5CG6388SJG` | HP EliteBook / ProBook | `Caritas-HP-1` | Esc / F10 | F9 |
 | `5CG6502VZQ` | HP EliteBook / ProBook | `Caritas-HP-2` | Esc / F10 | F9 |
 
@@ -143,23 +144,23 @@ Nach Abschluss der Routine ist das Gerät technisch vollständig konfiguriert.
 
 ## 5. Microsoft Office Aktivierung
 
-Die Microsoft Office 2024 LTSC Installation wird über den Standard-Volumenlizenzschlüssel aktiviert.
+Die Microsoft Office 2024 LTSC Installation wird über einen MAK-Volumenlizenzschlüssel aktiviert.
 
-### Automatische Aktivierung durch die Caritas Management-Suite (Standard)
-Die Caritas Management-Suite führt die Aktivierung im Rahmen der Erst-Einrichtung ([`setup/Install-CaritasEnvironment.ps1`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/setup/Install-CaritasEnvironment.ps1)), der Software-Synchronisation ([`scripts/Sync-CaritasSoftware.ps1`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/scripts/Sync-CaritasSoftware.ps1)) sowie der Standardanwendungs-Konfiguration ([`scripts/Configure-CaritasDefaults.ps1`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/scripts/Configure-CaritasDefaults.ps1)) vollautomatisch im Hintergrund durch:
+### Aktivierung durch die Caritas Management-Suite
+Die Caritas Management-Suite führt die Aktivierung im Rahmen der Erst-Einrichtung ([`setup/Install-CaritasEnvironment.ps1`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/setup/Install-CaritasEnvironment.ps1)), der Software-Synchronisation ([`scripts/Sync-CaritasSoftware.ps1`](file:///home/Adrixan/code/CaritasLaptops-Management-Scripts/scripts/Sync-CaritasSoftware.ps1)) sowie direkt über das Kontrollzentrum durch:
 - Prüft über das Office Software Protection Platform Skript (`ospp.vbs`), ob bereits eine gültige Lizenz vorliegt.
-- Hinterlegt bei Bedarf den MAK-Volumenlizenzschlüssel `[MANUELL-ZU-HINTERLEGEN]`.
-- Löst die Online-Aktivierung bei Microsoft aus und protokolliert den Erfolg.
+- Ermöglicht im Kontrollzentrum (GUI und TUI) die manuelle Eingabe des MAK-Volumenlizenzschlüssels über ein separates Eingabefeld bzw. Menü.
+- Löst die Registrierung und Online-Aktivierung bei Microsoft aus und protokolliert den Erfolg.
 
 ### Manuelle Aktivierung (Fallback)
 Falls eine manuelle Aktivierung gewünscht ist:
+- **Über das Kontrollzentrum (GUI / TUI):** Im Caritas Kontrollzentrum den Produktschlüssel in das Feld 'Office Produktschlüssel' eingeben und auf 'Aktivieren' klicken (oder im TUI die Menüoption `[O]` aufrufen).
 - **Über die Kommandozeile:**
   ```cmd
-  cscript.exe "%ProgramFiles%\Microsoft Office\Office16\ospp.vbs" /inpkey:[MANUELL-ZU-HINTERLEGEN]
+  cscript.exe "%ProgramFiles%\Microsoft Office\Office16\ospp.vbs" /inpkey:<PRODUKTSCHLUESSEL>
   cscript.exe "%ProgramFiles%\Microsoft Office\Office16\ospp.vbs" /act
   ```
-- **Über die Programmoberfläche:**
-  Word starten, auf **Konto** -> **Product Key ändern** klicken, den Lizenzschlüssel `[MANUELL-ZU-HINTERLEGEN]` eingeben und bestätigen.
+- **Über die Programmoberfläche:** Word starten, auf **Konto** -> **Product Key ändern** klicken, den Lizenzschlüssel eingeben und bestätigen.
 
 ---
 
