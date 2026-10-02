@@ -107,30 +107,41 @@ All modules, launchers, and deployment artifacts are authored, validated, and ve
 - **Automated BIOS Hostname Assignment:**
   - Files: `setup/Install-CaritasEnvironment.ps1`, `scripts/Configure-CaritasHardening.ps1`.
   - Dynamic hardware query against pre-configured serial number lookup table; renames host automatically when serial matches.
-- **Microsoft Office 2024 LTSC Silent Activation:**
-  - Files: `setup/Install-CaritasEnvironment.ps1`, `scripts/Sync-CaritasSoftware.ps1`, `scripts/Configure-CaritasDefaults.ps1`.
-  - Silent detection and activation via `cscript.exe //Nologo ospp.vbs /inpkey:...` and `/act`.
-- **TeamViewer Unattended Support Baseline:**
-  - Files: `setup/Install-CaritasEnvironment.ps1`, `scripts/Sync-CaritasSoftware.ps1`, `scripts/Configure-CaritasHardening.ps1`.
-  - Pre-configures `Security_WinLogin = 2` (allowing remote login using `CaritasAdmin` credentials) and `Always_Online = 1`, and sets Windows service to Automatic.
+- Hardware Inventory Extension, Security Purge & Manual License Entry (v1.1.5):
+  - Hardware inventory extension: Registered new laptop `Caritas-Acer-5` from hardware BIOS label (`NXEG9EV00105209C987600`, Acer Extensa 215-22, AMD Ryzen 3 3250U, BIOS F2, Boot F12) across `setup/Install-CaritasEnvironment.ps1`, `scripts/Configure-CaritasHardening.ps1`, and `HANDBUCH.md`.
+  - Microsoft Office security purge: Purged all occurrences of hardcoded MAK product key references from all codebase scripts, handbook documentation, and git commit history.
+  - GitHub release cleanup: Deleted contaminated releases `v1.0.9` through `v1.1.4` and their release downloads (`CaritasScripts.zip`, `HANDBUCH.pdf`) via GitHub CLI.
+  - History scrubbing: Used `git-filter-repo` with python file info callback to replace the key in all historical commit blobs and rewrite `HANDBUCH.pdf` across history, then force-pushed clean `main` branch.
+  - Manual Office key integration: Implemented dedicated `txtOfficeKey` TextBox and `btnActivateOffice` Button in GUI (`scripts/Caritas-ControlCenter-GUI.ps1`), menu option `[O]` and onboarding prompt in TUI (`scripts/Caritas-ControlCenter.ps1`), and created standalone `scripts/Activate-CaritasOffice.ps1`.
+  - Script parameterization: Updated `setup/Install-CaritasEnvironment.ps1`, `scripts/Sync-CaritasSoftware.ps1`, and `scripts/Configure-CaritasDefaults.ps1` with optional `[string]$OfficeProductKey` parameters.
+  - Recompiled publication-grade manual `HANDBUCH.pdf` (285.7 KB) at v1.1.5.
+  - Released `v1.1.5` via GitHub Actions and verified zero trace of key in release downloads or git history.
 
-## 3. Remote Verification & Hardware Testing
-- Target Host: `10.106.81.35` (`CARITAS-X1-1`), Windows 11 Pro 64-bit Build 26100.
-- Active Administrator: `CaritasAdmin`.
-- Suite Location: `C:\Users\CaritasAdmin\Desktop\CaritasScripts\`.
-- All verification assertions passed with 100% compliance:
-  - `BIOS_SerialNumber`: `PF0YG5PW`
-  - `OS_ComputerName`: `CARITAS-X1-1`
-  - `Expected_Hostname`: `Caritas-X1-1` (Match: True)
-  - `Office_OSPP_Path`: `C:\Program Files\Microsoft Office\Office16\ospp.vbs`
-  - `Office_Is_Licensed`: True (`---LICENSED---`)
-  - `TeamViewer_Service_Status`: Running (StartType: Automatic)
-  - `TeamViewer_Security_WinLogin`: 2 (Windows Authentication for all users)
-  - `TeamViewer_Always_Online`: 1
-  - `Autounattend_Xml_Exists`: True (`8559` bytes)
+## 2. Current Architecture & Operational State
+- **Hardware-Aware Automation:**
+  - Registered devices: Lenovo ThinkPad T480 (`Caritas-T480-1`), X1 Carbon (`Caritas-X1-1`), Acer laptops 1-5 (`Caritas-Acer-1..5`), HP EliteBook/ProBook (`Caritas-HP-1..2`).
+  - Automated BIOS serial number query and hostname renaming.
+- **Office Activation Architecture:**
+  - Standalone module `scripts/Activate-CaritasOffice.ps1`.
+  - Interactive manual key input field in GUI and TUI.
+  - Key passed dynamically to onboarding and sync routines without hardcoded secrets.
+- **Admin Account Redundancy & Protection:**
+  - `Ensure-CaritasAdminAccounts.ps1` provisions both `CaritasAdmin` and built-in `Administrator`.
+  - Deploy scripts create desktop shortcuts for all active admin profiles.
+- **Clean Slate Reset & Autologon:**
+  - Reset script `Reset-CaritasUserProfile.ps1` and launcher `Start-UserReset.cmd` purge patron session and recycle bins.
+  - Autologon configured for `User`.
+- **Handbook Documentation:**
+  - `HANDBUCH.md` and `HANDBUCH.pdf` (v1.1.5).
+
+## 3. Remote Verification & Release Status
+- Local Git History: Verified zero occurrences of the Office MAK license key or key fragments across all commits.
+- GitHub Releases: `v1.1.5` published and verified with clean assets.
+- GitHub Releases `v1.0.9` through `v1.1.4` purged.
+- All 13 `.ps1` scripts verified with UTF-8 BOM (`\xef\xbb\xbf`).
 
 ## 4. Pending Decisions & Next Steps
-- Release v1.1.4 successfully published to GitHub and verified.
+- Release v1.1.5 is live, verified, and active on GitHub.
 - Working tree clean and synchronized with origin/main.
 
 
